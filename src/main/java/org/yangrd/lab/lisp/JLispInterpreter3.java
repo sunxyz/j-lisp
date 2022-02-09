@@ -2,6 +2,7 @@ package org.yangrd.lab.lisp;
 
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.yangrd.lab.lisp.atom.Strings;
 import org.yangrd.lab.lisp.atom.Symbols;
 
 import java.util.Collections;
@@ -20,7 +21,7 @@ public class JLispInterpreter3 {
 
     private static final Predicate<Object> IS_FUN = o -> o instanceof Function;
 
-    private static final Predicate<Object> IS_ATOM = o -> o instanceof Number || o instanceof String || o instanceof Boolean;
+    private static final Predicate<Object> IS_ATOM = o -> o instanceof Number || o instanceof Strings || o instanceof Boolean;
 
     private static final BiPredicate<Cons, Object> CAN_APPLY = (exp, v) -> IS_FUN.test(v) && exp.isExp();
 
