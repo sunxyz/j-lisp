@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.yangrd.lab.lisp.atom.Strings;
 import org.yangrd.lab.lisp.atom.Symbols;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -25,10 +26,18 @@ public class JLispInterpreter3 {
 
     private static final BiPredicate<Cons, Object> CAN_APPLY = (exp, v) -> IS_FUN.test(v) && exp.isExp();
 
+    public static void main(String[] args) {
+        log.debug("=>{}", eval("((load 'lib.lisp' 'alias.lisp') ((r(x)(* x x))(cdr (cons 1 2))))"));
+    }
+
     public static Object eval(String exp) {
         Env root = Env.newInstance(null);
         FunManager.FUNCTIONAL.forEach(root::setEnv);
-        return eval(Parse.parse(exp), Env.newInstance(root));
+        return eval(exp, Env.newInstance(root));
+    }
+
+    private static Object eval(String exp, Env env) {
+        return eval(Parse.parse(exp), env);
     }
 
     private static Object eval(Cons exp, Env env) {
@@ -54,7 +63,7 @@ public class JLispInterpreter3 {
     }
 
     private static Object apply(Object v, Cons cdr, Env env) {
-        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> cdr.data().stream().map(o -> getAtom(o, cdr, env)).toArray(), JLispInterpreter3::eval));
+        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> cdr.data().stream().map(o -> getAtom(o, cdr, env)).toArray(), JLispInterpreter3::eval, JLispInterpreter3::eval));
     }
 
     private static Object getAtom(Object o, Cons exp, Env env) {
@@ -77,6 +86,7 @@ public class JLispInterpreter3 {
         Env env;
         Supplier<Object[]> lazyArgs;
         BiFunction<Cons, Env, Object> eval;
+        BiFunction<String, Env, Object> evalStr;
     }
 
     static  class FunManager{
@@ -87,13 +97,15 @@ public class JLispInterpreter3 {
             reg("-", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce((a, b) -> a - b).orElse(null));
             reg("*", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce((a, b) -> a * b).orElse(null));
             reg("/", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce((a, b) -> a / b).orElse(null));
+            reg("load", applyArgs -> load(applyArgs.getEnv(), applyArgs.getLazyArgs().get(), applyArgs.getEvalStr()));
             reg("lambda", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv()));
+            reg("quote", applyArgs -> quote(applyArgs.getExp(), applyArgs.getEnv()));
             reg("define", FunManager::define);
             reg("let", applyArgs -> let(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
             reg("set!", applyArgs -> set(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
             reg("apply", applyArgs -> apply0(applyArgs.getExp(), applyArgs.getEnv()));
             regBooleanFun();
-            reg("if", applyArgs -> if0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
+//            reg("if", applyArgs -> if0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
             reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
         }
 
@@ -106,7 +118,7 @@ public class JLispInterpreter3 {
                 Object[] x = applyArgs.getLazyArgs().get();
                 Cons args = cdr.carCons();
                 Cons body = cdr.cdr();
-                validateTrue(args.data().size() == x.length, "参数不一致");
+                validateTrue(args.data().size() == x.length, cdr.parent()+"参数不一致");
                 Env env0 = Env.newInstance(env);
                 int i = 0;
                 for (Object argName : args) {
@@ -115,6 +127,20 @@ public class JLispInterpreter3 {
                 }
                 return applyArgs.getEval().apply(body, env0);
             };
+        }
+
+        private static Function<ApplyArgs, Object> quote(Cons cdr, Env env) {
+            return (applyArgs) -> applyArgs.getEval().apply(cdr.carCons(), env);
+        }
+
+        private static Object load(Env env, Object[] args,  BiFunction<String, Env, Object> eval){
+            Arrays.asList(args).forEach(d->{
+                validateTrue(d instanceof Strings,d+" type error");
+                String file = ((Strings) d).getString();
+                String str = FileUtils.readFile(file);
+                eval.apply(str, env);
+            });
+            return null;
         }
 
         private static Object if0(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {

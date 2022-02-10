@@ -8,7 +8,26 @@ import static org.yangrd.lab.lisp.JLispInterpreter3.eval;
  */
 public class App {
     public static void main( String[] args ) {
-        System.out.println( eval("(+ 1 2 3 4 (+ 5 6) (+ 7 8 (+ 9 0)))") );
+//        System.out.println( eval("((define a (lambda () 'hello  world')) (a))") );
+//        System.out.println( eval("(+ 1 2 3 4 (+ 5 6) (+ 7 8 (+ 9 0)))") );
+//        System.out.println( eval("(let (" +
+//                "(cons  (lambda (x y) (lambda (g) (g x y)))) " +
+//                "(car (lambda (f) (f (lambda(x y)(x))))) " +
+//                "(cdr (lambda (f) (f (lambda(x y)(y)))))" +
+//                ")" +
+//                "(let (" +
+//                "(if (lambda (p then_v else_v) ((or (and p car) cdr) (cons then_v else_v))))" +
+//                ")(if (< 5 6) false 1)))") );
+//        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')(define fact (lambda (n)" +
+//                "  (if (= n 1)" +
+//                "      1" +
+//                "      ( lambda () ((* n ((fact (- n 1))))))))) (fact 10))"));
+        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')(define fact (lambda (n)" +
+                "  (if (= n 1)" +
+                "      1" +
+                "      (`(* n ((fact (- n 1)))))))) (fact 10))"));
+        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')((`(11))))"));
+
     }
 
 //    public static void main(String[] args) {
