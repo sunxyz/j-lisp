@@ -19,7 +19,7 @@ public class Env {
     }
 
     public void setEnv(Symbols symbols, Object val) {
-       setEnv(symbols.getName(),val);
+       setEnv(symbols.getVal(),val);
     }
 
     public void setEnv(String key, Object val) {
@@ -27,12 +27,12 @@ public class Env {
     }
 
     public Optional<Object> env(Symbols symbols) {
-        String symbolsName = symbols.getName();
+        String symbolsName = symbols.getVal();
         return Optional.ofNullable(env.containsKey(symbolsName) ? env.get(symbolsName) : (parent != null ? parent.env(symbols).orElse(null) : null));
     }
 
-    public boolean contains(Symbols symbols){
-        return env.containsKey(symbols.getName());
+    public boolean noContains(Symbols symbols){
+        return !env.containsKey(symbols.getVal());
     }
 
     public Env parent(){

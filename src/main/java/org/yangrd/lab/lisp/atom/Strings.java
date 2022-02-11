@@ -2,20 +2,18 @@ package org.yangrd.lab.lisp.atom;
 
 import lombok.Value;
 
-public interface Strings {
+public interface Strings extends Atom<String>{
 
     static Strings of(String str) {
         return new SimpleStr(str);
     }
 
-    String getString();
-
     @Value
     class SimpleStr implements Strings {
-        String string;
+        String val;
         @Override
         public String toString() {
-            return "'" + string+"'";
+            return "'" + val+"'";
         }
     }
 }

@@ -19,8 +19,9 @@ public class Cons implements Iterable<Object> {
         return Cons.of(new ArrayList<>(), parent, true);
     }
 
-    public void add(Object obj) {
+    public Cons add(Object obj) {
         data.add(obj);
+        return this;
     }
 
     public Object car() {
@@ -41,6 +42,10 @@ public class Cons implements Iterable<Object> {
 
     public Collection<Object> data() {
         return Collections.unmodifiableList(data);
+    }
+
+    public List<Object> list() {
+        return data;
     }
 
     public Cons parent() {

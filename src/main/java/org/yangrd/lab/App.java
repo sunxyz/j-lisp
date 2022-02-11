@@ -22,11 +22,21 @@ public class App {
 //                "  (if (= n 1)" +
 //                "      1" +
 //                "      ( lambda () ((* n ((fact (- n 1))))))))) (fact 10))"));
-        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')(define fact (lambda (n)" +
-                "  (if (= n 1)" +
-                "      1" +
-                "      (`(* n ((fact (- n 1)))))))) (fact 10))"));
-        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')((`(11))))"));
+//        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')(define fact (lambda (n)" +
+//                "  (if (= n 1)" +
+//                "      1" +
+//                "     (` (* n ((fact (- n 1)))))))) (fact 5))"));
+//        System.out.println(eval("((define c  3)(define b (cons c 8)) (set-cdr! b 3) (let ((c 5))((car b))))"));
+//        System.out.println(eval("((define c  3)(define b ((list c 8 7 8 9 10)))  (apply + b))"));
+        System.out.println(eval("((define c  3)(define b ( quote ( c (lambda () (6)) 7 8 9 10))) (set! c 10)  (list-ref b 0))"));
+//        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')((`(11))))"));
+//        System.out.println(eval("((define counter 0)\n" +
+//                "\n" +
+//                "(define bump-counter\n" +
+//                "  (lambda ()\n" +
+//                "    (set! counter (+ counter 1))\n" +
+//                "    counter)) (bump-counter) (bump-counter))"));
+//        System.out.println(eval("((define return (lambda  (x) x)) (define k+ (lambda (a b k) (k (+ a b)))) (define k* (lambda (a b k) (k (* a b)))) (k+ 1 2 (lambda (x) (k* x 3 return))))"));
 
     }
 

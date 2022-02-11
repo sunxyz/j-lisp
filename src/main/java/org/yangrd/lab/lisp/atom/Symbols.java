@@ -2,20 +2,18 @@ package org.yangrd.lab.lisp.atom;
 
 import lombok.Value;
 
-public interface Symbols {
+public interface Symbols extends Atom<String>{
     static Symbols of(String name) {
         return new SimpleSymbols(name);
     }
 
-    String getName();
-
     @Value
     class SimpleSymbols implements Symbols {
-        String name;
+        String val;
 
         @Override
         public String toString() {
-            return "`" + name;
+            return "`" + val;
         }
     }
 }
