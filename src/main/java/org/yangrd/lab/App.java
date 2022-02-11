@@ -28,7 +28,7 @@ public class App {
 //                "     (` (* n ((fact (- n 1)))))))) (fact 5))"));
 //        System.out.println(eval("((define c  3)(define b (cons c 8)) (set-cdr! b 3) (let ((c 5))((car b))))"));
 //        System.out.println(eval("((define c  3)(define b ((list c 8 7 8 9 10)))  (apply + b))"));
-        System.out.println(eval("((define c  3)(define b ( quote ( c (lambda () (6)) 7 8 9 10))) (set! c 10)  (list-ref b 0))"));
+        System.out.println(eval("((define c  3)(define b (  (list c ((lambda () (6))) 7 8 9 10))) (set! c 10)  (b))") +"  "+eval("((define c  3)(define b (quote  ( c ((lambda () (6))) 7 8 9 10))) (set! c 10)  (b))"));
 //        System.out.println(eval("((load 'lib.lisp' 'alias.lisp')((`(11))))"));
 //        System.out.println(eval("((define counter 0)\n" +
 //                "\n" +

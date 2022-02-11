@@ -267,7 +267,7 @@ public class JLispInterpreter3 {
             });
             reg("list", applyArgs -> {
                 Cons cons = Cons.newInstance(null);
-                applyArgs.getExp().data().stream().map(o->IS_SYMBOLS.test(o)?getAtom(o, applyArgs.getExp(), applyArgs.getEnv()):o).forEach(cons::add);
+                Arrays.asList( applyArgs.getLazyArgs().get()).forEach(cons::add);
                 return cons;
             });
             reg("list-ref", applyArgs -> {
