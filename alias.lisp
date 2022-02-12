@@ -1,4 +1,4 @@
 (
-    (define r lambda)
+    (define λ lambda)
     (define ` quote)
 )

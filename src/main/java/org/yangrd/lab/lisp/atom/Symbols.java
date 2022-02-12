@@ -13,7 +13,7 @@ public interface Symbols extends Atom<String>{
 
         @Override
         public String toString() {
-            return "`" + val;
+            return "" + val;
         }
     }
 }

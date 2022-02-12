@@ -5,6 +5,8 @@ import org.yangrd.lab.lisp.atom.Symbols;
 
 import java.util.*;
 
+import static org.yangrd.lab.lisp.Cons.ConsType.*;
+
 
 @RequiredArgsConstructor(staticName = "of")
 public class Cons implements Iterable<Object> {
@@ -13,10 +15,10 @@ public class Cons implements Iterable<Object> {
 
     private final Cons parent;
 
-    private final boolean exp;
+    private final ConsType type;
 
     public static Cons newInstance(Cons parent) {
-        return Cons.of(new ArrayList<>(), parent, true);
+        return Cons.of(new ArrayList<>(), parent, EXP);
     }
 
     public Cons add(Object obj) {
@@ -37,7 +39,7 @@ public class Cons implements Iterable<Object> {
     }
 
     public Cons cdr() {
-        return Cons.of(data.subList(1, data.size() ), this,false);
+        return Cons.of(data.subList(1, data.size() ), this,SUB_EXP);
     }
 
     public Collection<Object> data() {
@@ -53,7 +55,19 @@ public class Cons implements Iterable<Object> {
     }
 
     public boolean isExp() {
-        return exp;
+        return EXP.equals(type);
+    }
+
+    public boolean isSubExp() {
+        return SUB_EXP.equals(type);
+    }
+
+    public boolean isQuote(){
+        return QUOTE.equals(type);
+    }
+
+    public boolean isList(){
+        return LIST.equals(type);
     }
 
     public boolean isEmpty(){
@@ -69,5 +83,12 @@ public class Cons implements Iterable<Object> {
     public String toString() {
         Optional<String> reduce = data.stream().map(Object::toString).reduce((x, y) -> x + " " + y).map(o -> "(" + o + ")");
         return reduce.orElse("()");
+    }
+
+    enum ConsType{
+        EXP,
+        SUB_EXP,
+        LIST,
+        QUOTE
     }
 }
