@@ -370,21 +370,5 @@ public class JLispInterpreter3 {
         private static Cons markQuote(Object... data){
             return Cons.of(new ArrayList<>(Arrays.asList(data)), null, Cons.ConsType.QUOTE);
         }
-
-        private static List<Object> listArgs(Object[] ts) {
-            List<Object> l = new ArrayList<>();
-            for (int i = 0; i < ts.length; i++) {
-                if (i < ts.length - 1) {
-                    l.add(ts[i]);
-                } else {
-                    if (IS_EXP.test(ts[i])) {
-                        l.addAll(((Cons) ts[i]).data());
-                    } else {
-                        l.add(ts[i]);
-                    }
-                }
-            }
-            return l;
-        }
     }
 }
