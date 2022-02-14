@@ -2,6 +2,8 @@ package org.yangrd.lab.lisp;
 
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.yangrd.lab.lisp.atom.Atom;
+import org.yangrd.lab.lisp.atom.Booleans;
 import org.yangrd.lab.lisp.atom.Strings;
 import org.yangrd.lab.lisp.atom.Symbols;
 
@@ -20,7 +22,7 @@ public class JLispInterpreter3 {
 
     private static final Predicate<Object> IS_FUN = o -> o instanceof Function;
 
-    private static final Predicate<Object> IS_ATOM = o -> o instanceof Number || o instanceof Strings || o instanceof Boolean;
+    private static final Predicate<Object> IS_ATOM = o -> o instanceof Atom;
 
     private static final BiPredicate<Cons, Object> CAN_APPLY = (exp, v) -> IS_FUN.test(v) && !exp.isSubExp();
 
@@ -105,6 +107,7 @@ public class JLispInterpreter3 {
             reg("apply", applyArgs -> apply0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
             regBooleanFun();
             regCons();
+            regSymbolsFun();
             reg("if", applyArgs -> if0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
             reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
         }
@@ -171,8 +174,9 @@ public class JLispInterpreter3 {
         }
 
         private static Object if0(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {
-            Cons car = cdr.carCons();
-            if (isaBoolean(eval.apply(car, env))) {
+            Object car = cdr.car();
+            boolean isTure = toBoolean(IS_EXP.test(car)?eval.apply(cdr.carCons(), env):car);
+            if (isTure) {
                 Object then = cdr.cdr().car();
                 return getAtom(then, cdr.cdr(), env);
             } else {
@@ -187,7 +191,7 @@ public class JLispInterpreter3 {
             Cons car = cdr.carCons();
             Cons predicateExp = car.carCons();
             Cons body = car.cdr();
-            if (isaBoolean(eval.apply(predicateExp, env))) {
+            if (toBoolean(eval.apply(predicateExp, env))) {
                 return eval.apply(body, env);
             } else {
                 Cons elseCdr = cdr.cdr();
@@ -259,20 +263,13 @@ public class JLispInterpreter3 {
             if(IS_EXP.test(last)){
                 Cons last1 = (Cons) last;
                 Object r = eval.apply(last1, env);
-                if(IS_EXP.test(r)){
+                if(IS_EXP.test(r)/*判断是列表*/){
                     Cons r1 = (Cons) r;
                     // 此处最好比较的是全局的
-                    boolean quote =  (IS_SYMBOLS.test(r1.parent().car())&&env.env(r1.parent().carSymbols()).orElseThrow(RuntimeException::new).equals(FUNCTIONAL.get("quote")));
-                    r1.data().forEach(o -> {
-                        if(IS_EXP.test(o)){
-                            if(quote){
-                                o = markQuote(Symbols.of("quote"),o);
-                            }
-                        }
-                        exp.add(o);
-                    });
+                    boolean quote =  IS_SYMBOLS.test(r1.parent().car())&&env.env(r1.parent().carSymbols()).orElseThrow(RuntimeException::new).equals(FUNCTIONAL.get("quote"));
+                    r1.data().stream().map(o->IS_EXP.test(o)&&quote?markQuote(Symbols.of("quote"),o):o).forEach(exp::add);
                 }else{
-                    last1.data().forEach(exp::add);
+                    exp.add(last);
                 }
             }else{
                 exp.add(last);
@@ -289,13 +286,13 @@ public class JLispInterpreter3 {
         private static void regBooleanFun() {
             reg("and", applyArgs -> {
                 Object[] ts = applyArgs.getLazyArgs().get();
-                return Stream.of(ts).allMatch(FunManager::isaBoolean) ? ts[ts.length - 1] : false;
+                return Stream.of(ts).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false;
             });
-            reg("or", applyArgs -> Stream.of(applyArgs.getLazyArgs().get()).filter(FunManager::isaBoolean).findFirst().orElse(false));
+            reg("or", applyArgs -> Stream.of(applyArgs.getLazyArgs().get()).filter(FunManager::toBoolean).findFirst().orElse(false));
             reg("not", applyArgs -> {
                 Object[] ts = applyArgs.getLazyArgs().get();
                 validateTrue(ts.length == 1, applyArgs.getExp() + "not args only one");
-                return !isaBoolean(ts[0]);
+                return !toBoolean(ts[0]);
             });
             reg("<", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x < (Integer) y : x.toString().length() < y.toString().length()));
             reg("<=", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x <= (Integer) y : x.toString().length() <= y.toString().length()));
@@ -307,8 +304,8 @@ public class JLispInterpreter3 {
 
         private static void regCons() {
             reg("cons", applyArgs -> markList(Arrays.copyOf(applyArgs.getLazyArgs().get(), 2)));
-            reg("car", applyArgs -> getAtom(((Cons) (applyArgs.getLazyArgs().get()[0])).car(), applyArgs.getExp(), applyArgs.getEnv()));
-            reg("cdr", applyArgs -> getAtom(((Cons) (applyArgs.getLazyArgs().get()[0])).cdr().car(), applyArgs.getExp(), applyArgs.getEnv()));
+            reg("car", applyArgs -> ((Cons) (applyArgs.getLazyArgs().get()[0])).car());
+            reg("cdr", applyArgs -> ((Cons) (applyArgs.getLazyArgs().get()[0])).cdr().car());
             reg("set-car!", applyArgs -> {
                 Object[] x = applyArgs.getLazyArgs().get();
                 ((Cons) x[0]).list().set(0, x[1]);
@@ -322,13 +319,18 @@ public class JLispInterpreter3 {
             reg("list", applyArgs -> markList(applyArgs.getLazyArgs().get()));
             reg("list-ref", applyArgs -> {
                 Object[] x = applyArgs.getLazyArgs().get();
-                return getAtom(((Cons) x[0]).list().get((Integer) x[1]), applyArgs.getExp(), applyArgs.getEnv());
+                return ((Cons) x[0]).list().get((Integer) x[1]);
             });
             reg("list-tail", applyArgs -> {
                 Object[] x = applyArgs.getLazyArgs().get();
                 Cons cons = (Cons) x[0];
                 return markList(cons.list().subList((Integer) x[1], cons.list().size()));
             });
+        }
+
+        private static void regSymbolsFun(){
+            reg("symbol?", applyArgs -> warp(applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv()) instanceof Symbols));
+            reg("eqv?", applyArgs -> warp(applyArgs.getExp().car().equals(applyArgs.getExp().cdr().car())));
         }
 
         private static Object predicate(Cons exp, Supplier<Object[]> lazyArgs, BiPredicate<Object, Object> predicates) {
@@ -346,12 +348,23 @@ public class JLispInterpreter3 {
             return true;
         }
 
-        private static boolean isaBoolean(Object o) {
+        private static boolean toBoolean(Object o) {
             if (o instanceof Boolean) {
                 return (Boolean) o;
+            }else if(o instanceof Booleans){
+                return ((Booleans) o).getVal();
             } else {
                 return !o.equals(0);
             }
+        }
+
+        private static Object warp(Object o){
+            if(o instanceof String){
+                return Strings.of((String) o);
+            }if (o instanceof Boolean){
+                return Booleans.of((Boolean) o);
+            }
+            return o;
         }
 
         private static Stream<Integer> toIntStream(Supplier<Object[]> supplierObjs) {

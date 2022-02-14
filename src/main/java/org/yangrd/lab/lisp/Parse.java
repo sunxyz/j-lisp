@@ -1,6 +1,7 @@
 package org.yangrd.lab.lisp;
 
 import lombok.extern.slf4j.Slf4j;
+import org.yangrd.lab.lisp.atom.Booleans;
 import org.yangrd.lab.lisp.atom.Strings;
 import org.yangrd.lab.lisp.atom.Symbols;
 
@@ -67,8 +68,8 @@ public class Parse {
         try {
             return Integer.valueOf(atom);
         } catch (NumberFormatException e) {
-            if (atom.equals("true") || atom.equals("false")) {
-                return Boolean.valueOf(atom);
+            if (atom.equals("#t") || atom.equals("#f")) {
+                return Booleans.of(atom.equals("#t"));
             } else if (atom.indexOf("'") == 0 && atom.lastIndexOf("'") == atom.length() - 1) {
                 return Strings.of(atom.replaceAll("'", "").replaceAll("\\\\O", " "));
             } else {

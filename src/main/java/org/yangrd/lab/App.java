@@ -37,10 +37,10 @@ public class App {
 //                "    (set! counter (+ counter 1))\n" +
 //                "    counter)) (bump-counter) (bump-counter))"));
 //        System.out.println(eval("((define return (lambda  (x) x)) (define k+ (lambda (a b k) (k (+ a b)))) (define k* (lambda (a b k) (k (* a b)))) (k+ 1 2 (lambda (x) (k* x 3 return))))"));
-        System.out.println(eval("(   ((define-macro when (lambda (p then . else)  (list (quote if) p then else))) ((when (> 1 2) (+ 1 2) 7 8 (9 7 8) ))))"));
+//        System.out.println(eval("(   ((define-macro when (lambda (p then . else)  (list (quote if) p then else))) ((when (> 1 2) (+ 1 2) 7 8 (9 7 8) ))))"));
 //        System.out.println(eval("(apply (apply (lambda (p then else)  (list (quote if) p then (quote else) else)) (quote (< 1 2)) (quote(+ 1 2)) 7))"));
-        System.out.println(eval("( (load 'alias.lisp') (apply (λ (p then . else)  (list (` if) p then else)) (` ((> 1 2) (+ 1 2) 7 8 (9 7 8)))))"));
-        System.out.println(eval("(  (  (lambda (p then . else)  (list (quote if) p then else)) (quote (> 1 2) ) (quote (+ 1 2))  (quote 7) (quote 8) (quote (9 7 8)))) )"));
+        System.out.println(eval("( apply( (load 'alias.lisp') (apply (λ (p then . else)  (list (` if) p then else)) (` ((> 10 9) (+ 1 2) 7 8 (` ()))))))"));
+//        System.out.println(eval("(  (  (lambda (p then . else)  (list (quote if) p then else)) (quote (> 1 2) ) (quote (+ 1 2))  (quote 7) (quote 8) (quote (9 7 8)))) )"));
 //        System.out.println(eval("( (  (apply (lambda (p then . else)  (list (quote if) p then else)) (quote (< 1 0)) (quote (+ 1 8))  (quote (if (< 7 8) 8 9))) )))"));
 //        System.out.println(eval("(if (> 1 2) (+ 1 2) ( 7 8 ( (9 7 8))))"));
     }
