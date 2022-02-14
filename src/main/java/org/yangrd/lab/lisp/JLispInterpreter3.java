@@ -100,8 +100,11 @@ public class JLispInterpreter3 {
             reg("load", applyArgs -> load(applyArgs.getEnv(), applyArgs.getLazyArgs().get(), applyArgs.getEvalStr()));
             reg("lambda", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv()));
             reg("quote", applyArgs -> quote(applyArgs.getExp()));
+            reg("display", applyArgs -> { System.out.print(applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv()));return null; });
+            reg("newline", applyArgs -> { System.out.println();return null;});
+            reg("begin", applyArgs ->  applyArgs.getEval().apply(applyArgs.getExp(),applyArgs.getEnv()) );
             reg("define", FunManager::define);
-            reg("define-macro", FunManager::define);
+            reg("define-macro", FunManager::defineMacro);
             reg("let", applyArgs -> let(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
             reg("set!", applyArgs -> set(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
             reg("apply", applyArgs -> apply0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
@@ -116,7 +119,7 @@ public class JLispInterpreter3 {
             FUNCTIONAL.put(optKey, opt);
         }
 
-        private static Function<ApplyArgs, Object> lambda(Cons cdr, Env env) {
+       /* private static Function<ApplyArgs, Object> lambda(Cons cdr, Env env) {
             return new Function<ApplyArgs, Object>() {
                 @Override
                 public Object apply(ApplyArgs applyArgs) {
@@ -132,6 +135,46 @@ public class JLispInterpreter3 {
                 private void bindEnv(ApplyArgs applyArgs, Env env, boolean isMacro) {
                     //参数值
                     Object[] x = isMacro ? applyArgs.getExp().data().toArray() : applyArgs.getLazyArgs().get();
+                    // 看是否有可变参数
+                    List<Object> args = cdr.carCons().list();
+                    int argsSize = args.size();
+                    boolean indefiniteLengthArgsFlag = argsSize > 1 && ((Symbols) args.get(argsSize - 2)).getVal().equals(".");
+                    validateTrue((indefiniteLengthArgsFlag || args.size() == x.length)&&x.length>=argsSize-1, cdr.parent() + "参数不一致");
+                    int i = 0;
+                    if (indefiniteLengthArgsFlag) {
+                        for (int j = 0; j < argsSize - 2; j++) {
+                            env.setEnv(((Symbols) args.get(i)), x[i]);
+                            i++;
+                        }
+                        env.setEnv(((Symbols) args.get(argsSize - 1)), markList(Arrays.copyOfRange(x, argsSize - 2, x.length)));
+                    } else {
+                        for (Object argName : args) {
+                            env.setEnv(((Symbols) argName), x[i]);
+                            i++;
+                        }
+                    }
+                }
+
+                @Override
+                public String toString() {
+                    return "<procedure>";
+                }
+            };
+        }*/
+
+        private static Function<ApplyArgs, Object> lambda(Cons cdr, Env env) {
+            return new Function<ApplyArgs, Object>() {
+                @Override
+                public Object apply(ApplyArgs applyArgs) {
+                    Cons body = cdr.cdr();
+                    Env env0 = Env.newInstance(env);
+                    bindEnv(applyArgs, env0);
+                    return applyArgs.getEval().apply(body, env0);
+                }
+
+                private void bindEnv(ApplyArgs applyArgs, Env env) {
+                    //参数值
+                    Object[] x = applyArgs.getLazyArgs().get();
                     // 看是否有可变参数
                     List<Object> args = cdr.carCons().list();
                     int argsSize = args.size();
@@ -212,6 +255,21 @@ public class JLispInterpreter3 {
             Object val = applyArgs.eval.apply(cdr.cdr(), applyArgs.getEnv());
             validateTrue(applyArgs.getEnv().noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
             applyArgs.getEnv().setEnv(cdr.carSymbols(), val);
+            return null;
+        }
+
+        private static Object defineMacro(ApplyArgs applyArgs) {
+            Cons cdr = applyArgs.getExp();
+            validateTrue(applyArgs.getEnv().noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
+            Function<ApplyArgs,Object> applyFun = (applyArgs1)->{
+                Cons cons = markList(Symbols.of("apply"), cdr.cdr().car());
+                Cons quote = markQuote(Symbols.of("quote"));
+                quote.add(markList(quote, applyArgs1.getExp().list().toArray()));
+                cons.add(quote);
+                Object apply = applyArgs1.getEval().apply(cons, applyArgs1.getEnv());
+                return getAtom(apply,cdr,applyArgs1.getEnv());
+            };
+            applyArgs.getEnv().setEnv(cdr.carSymbols(), applyFun);
             return null;
         }
 
@@ -373,7 +431,11 @@ public class JLispInterpreter3 {
         }
 
         private static Cons markList(Object... data) {
-            return Cons.of(Arrays.asList(data), null, Cons.ConsType.LIST);
+            return Cons.of(new ArrayList<>(Arrays.asList(data)), null, Cons.ConsType.LIST);
+        }
+
+        private static Cons markList(Cons parent,Object... data) {
+            return Cons.of(new ArrayList<>(Arrays.asList(data)), parent, Cons.ConsType.LIST);
         }
 
         private static Cons markExp(Object... data) {
@@ -381,7 +443,7 @@ public class JLispInterpreter3 {
         }
 
         private static Cons markQuote(Object... data){
-            return Cons.of(new ArrayList<>(Arrays.asList(data)), null, Cons.ConsType.QUOTE);
+              return Cons.of(new ArrayList<>(Arrays.asList(data)), null, Cons.ConsType.QUOTE);
         }
     }
 }
