@@ -3,7 +3,7 @@
 > use java impl lisp (scheme) interpreter
 
 ## Implemented functions
-- [x] atom: numbers booleans symbols , string
+- [x] atom: numbers booleans symbols , strings
 - [x] Four arithmetic
 - [x] load
 - [x] lambda
