@@ -436,13 +436,19 @@ public class JLispInterpreter3 {
             if (o instanceof Cons && ((Cons) o).isCons()) {
                 Cons list = markList();
                 Cons x = (Cons) o;
-//                if (x.data().size()>1&&(x.cdr().isCons()||x.cdr().isList())) {
-//                    while (!x.isEmpty()) {
-//                        list.add(x.car());
-//                        x = x.cdr();
-//                    }
-//                    return list;
-//                }
+                if (x.data().size()>1&&IS_EXP.test(x.list().get(1))&&(x.cdr().isCons()||x.cdr().isList())) {
+                    while (!x.isEmpty()) {
+                        list.add(x.car());
+                        if(IS_EXP.test(x.list().get(1))){
+                            x = x.cdr();
+                        }else{
+                            list.add(x.list().get(1));
+                            x = Cons.EMPTY;
+                        }
+
+                    }
+                    return list;
+                }
             }
             return o;
         }

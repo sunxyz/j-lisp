@@ -18,7 +18,7 @@ public class Cons implements Iterable<Object> {
 
     private final ConsType type;
 
-    private static final Cons EMPTY = newInstance(null);
+    protected static final Cons EMPTY = newInstance(null);
 
     public static Cons newInstance(Cons parent) {
         return Cons.of(new ArrayList<>(), parent, EXP);
