@@ -49,6 +49,7 @@ public class App {
 
 //        System.out.println(eval("(   ((define-macro when (lambda (p then . else)  (quote (if , p , then , else)))) ((when (> 1 2) (+ 1 2) 7 8 (9 7 8) ))))"));
         System.out.println(eval("(load 'alias.lisp' 'test-1.lisp')"));
+//        System.out.println(eval("((define a (list 1 2 3 4 5)) a)"));
     }
 
 //    public static void main(String[] args) {

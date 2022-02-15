@@ -27,10 +27,6 @@ public class JLispInterpreter3 {
 
     private static final BiPredicate<Cons, Object> CAN_APPLY = (exp, v) -> IS_FUN.test(v) && !exp.isSubExp();
 
-    public static void main(String[] args) {
-        log.debug("=>{}", eval("((load 'lib.lisp' 'alias.lisp') ((r(x)(* x x))(cdr (cons 1 2))))"));
-    }
-
     public static Object eval(String exp) {
         Env root = Env.newInstance(null);
         FunManager.FUNCTIONAL.forEach(root::setEnv);
@@ -78,7 +74,7 @@ public class JLispInterpreter3 {
     }
 
     private static Cons markSubExp(Cons parent, Object obj) {
-        return Cons.of(IS_EXP.test(obj) ? ((Cons) obj).list() : Collections.singletonList(obj), parent, Cons.ConsType.SUB_EXP);
+        return Cons.of(Collections.singletonList(obj), parent, Cons.ConsType.SUB_EXP);
     }
 
     @Value(staticConstructor = "of")
@@ -145,7 +141,7 @@ public class JLispInterpreter3 {
                     validateTrue((indefiniteLengthArgsFlag && x.length >= argsSize - 2) || args0.size() <= x.length, cdr.parent() + "参数不一致");
                     //参数值
 
-                    Cons val = x.length == 1 && IS_EXP.test(x[0]) ? (Cons) x[0] : markExp(x);
+                    Cons val = x.length == 1 && IS_EXP.test(x[0]) ? (Cons) x[0] : markList(x);
                     Cons args = cdr.carCons();
                     loopBind(env, args, val);
                 }
