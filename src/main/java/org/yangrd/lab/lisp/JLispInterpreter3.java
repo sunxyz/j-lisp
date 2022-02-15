@@ -338,20 +338,20 @@ public class JLispInterpreter3 {
         private static void regBooleanFun() {
             reg("and", applyArgs -> {
                 Object[] ts = applyArgs.getLazyArgs().get();
-                return Stream.of(ts).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false;
+                return Stream.of(ts).map(o->getAtom(o,applyArgs.getExp(), applyArgs.getEnv())).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false;
             });
-            reg("or", applyArgs -> Stream.of(applyArgs.getLazyArgs().get()).filter(FunManager::toBoolean).findFirst().orElse(false));
+            reg("or", applyArgs -> Stream.of(applyArgs.getLazyArgs().get()).map(o->getAtom(o,applyArgs.getExp(), applyArgs.getEnv())).filter(FunManager::toBoolean).findFirst().orElse(false));
             reg("not", applyArgs -> {
                 Object[] ts = applyArgs.getLazyArgs().get();
                 validateTrue(ts.length == 1, applyArgs.getExp() + "not args only one");
-                return !toBoolean(ts[0]);
+                return !toBoolean(getAtom(ts[0] ,applyArgs.getExp(), applyArgs.getEnv()));
             });
-            reg("<", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x < (Integer) y : x.toString().length() < y.toString().length()));
-            reg("<=", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x <= (Integer) y : x.toString().length() <= y.toString().length()));
-            reg("=", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), Object::equals));
-            reg("!=", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), (x, y) -> !x.equals(y)));
-            reg(">", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x > (Integer) y : x.toString().length() > y.toString().length()));
-            reg(">=", applyArgs -> predicate(applyArgs.getExp(), applyArgs.getLazyArgs(), (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x >= (Integer) y : x.toString().length() >= y.toString().length()));
+            reg("<", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x < (Integer) y : x.toString().length() < y.toString().length()));
+            reg("<=", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x <= (Integer) y : x.toString().length() <= y.toString().length()));
+            reg("=", applyArgs -> predicate(applyArgs, Object::equals));
+            reg("!=", applyArgs -> predicate(applyArgs, (x, y) -> !x.equals(y)));
+            reg(">", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x > (Integer) y : x.toString().length() > y.toString().length()));
+            reg(">=", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x >= (Integer) y : x.toString().length() >= y.toString().length()));
         }
 
         private static void regCons() {
@@ -399,12 +399,12 @@ public class JLispInterpreter3 {
         }
 
 
-        private static Object predicate(Cons exp, Supplier<Object[]> lazyArgs, BiPredicate<Object, Object> predicates) {
-            Object[] objs = lazyArgs.get();
-            validateTrue(objs.length > 1, exp + " args qty > 1 ");
-            Object o = objs[0];
+        private static Object predicate(ApplyArgs applyArgs, BiPredicate<Object, Object> predicates) {
+            Object[] objs = applyArgs.getLazyArgs().get();
+            validateTrue(objs.length > 1, applyArgs.getExp() + " args qty > 1 ");
+            Object o = getAtom(objs[0] ,applyArgs.getExp(), applyArgs.getEnv());
             for (int i = 1; i < objs.length; i++) {
-                Object o1 = objs[i];
+                Object o1 = getAtom(objs[i], applyArgs.getExp(), applyArgs.getEnv());
                 boolean b = predicates.test(o, o1);
                 if (!b) {
                     return b;
@@ -436,13 +436,13 @@ public class JLispInterpreter3 {
             if (o instanceof Cons && ((Cons) o).isCons()) {
                 Cons list = markList();
                 Cons x = (Cons) o;
-                if (x.cdr().isCons()||x.cdr().isList()) {
-                    while (!x.isEmpty()) {
-                        list.add(x.car());
-                        x = x.cdr();
-                    }
-                    return list;
-                }
+//                if (x.data().size()>1&&(x.cdr().isCons()||x.cdr().isList())) {
+//                    while (!x.isEmpty()) {
+//                        list.add(x.car());
+//                        x = x.cdr();
+//                    }
+//                    return list;
+//                }
             }
             return o;
         }
