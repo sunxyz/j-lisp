@@ -1,5 +1,6 @@
 package org.yangrd.lab.lisp;
 
+import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.yangrd.lab.lisp.atom.Symbols;
 
@@ -8,17 +9,27 @@ import java.util.*;
 import static org.yangrd.lab.lisp.Cons.ConsType.*;
 
 
-@RequiredArgsConstructor(staticName = "of")
+@AllArgsConstructor
 public class Cons implements Iterable<Object> {
 
     private final List<Object> data;
 
-    private final Cons parent;
+    private Cons parent;
 
     private final ConsType type;
 
+    private static final Cons EMPTY = newInstance(null);
+
     public static Cons newInstance(Cons parent) {
         return Cons.of(new ArrayList<>(), parent, EXP);
+    }
+
+    public static Cons of(List<Object> data, Cons parent, ConsType type) {
+        Cons cons = new Cons(data, parent, type);
+        if(Objects.nonNull(data)){
+            data.stream().filter(o -> o instanceof Cons&& ((Cons) o).type.equals(CONS)).forEach(o -> ((Cons) o).parent=cons);
+        }
+        return cons;
     }
 
     public Cons add(Object obj) {
@@ -27,7 +38,7 @@ public class Cons implements Iterable<Object> {
     }
 
     public Object car() {
-        return iterator().next();
+        return data.isEmpty()?EMPTY:iterator().next();
     }
 
     public Cons carCons() {
@@ -39,7 +50,7 @@ public class Cons implements Iterable<Object> {
     }
 
     public Cons cdr() {
-        return Cons.of(data.subList(1, data.size() ), this,SUB_EXP);
+        return isCons()?(Cons)data.get(1): Cons.of(data.subList(1, data.size() ), this,SUB_EXP);
     }
 
     public Collection<Object> data() {
@@ -54,21 +65,18 @@ public class Cons implements Iterable<Object> {
         return parent;
     }
 
-    public boolean isExp() {
-        return EXP.equals(type);
-    }
-
     public boolean isSubExp() {
         return SUB_EXP.equals(type);
     }
 
-    public boolean isQuote(){
-        return QUOTE.equals(type);
+    public boolean isCons() {
+        return CONS.equals(type);
     }
 
-    public boolean isList(){
+    public boolean isList() {
         return LIST.equals(type);
     }
+
 
     public boolean isEmpty(){
         return data.isEmpty();
@@ -79,8 +87,15 @@ public class Cons implements Iterable<Object> {
         return data.iterator();
     }
 
+    public Cons cloneEmpty(){
+        return Cons.of(new ArrayList<>(), parent, type);
+    }
+
     @Override
     public String toString() {
+//        if(type.equals(CONS)){
+//            return  data.stream().filter(o ->  (!(o instanceof Cons) )|| !((Cons) o).isEmpty()).map(Object::toString).reduce((x, y) -> x + " " + y).map(o->this.parent!=null?o:"(" + o + ")").orElse("()");
+//        }
         Optional<String> reduce = data.stream().map(Object::toString).reduce((x, y) -> x + " " + y).map(o -> "(" + o + ")");
         return reduce.orElse("()");
     }
@@ -89,6 +104,7 @@ public class Cons implements Iterable<Object> {
         EXP,
         SUB_EXP,
         LIST,
+        CONS,
         QUOTE
     }
 }

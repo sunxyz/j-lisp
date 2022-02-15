@@ -6,6 +6,7 @@ import org.yangrd.lab.lisp.atom.Atom;
 import org.yangrd.lab.lisp.atom.Booleans;
 import org.yangrd.lab.lisp.atom.Strings;
 import org.yangrd.lab.lisp.atom.Symbols;
+import org.yangrd.lab.lisp.support.FileUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -16,7 +17,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class JLispInterpreter3 {
 
-    private static final Predicate<Object> IS_EXP = o -> o instanceof Cons ;
+    private static final Predicate<Object> IS_EXP = o -> o instanceof Cons;
 
     private static final Predicate<Object> IS_SYMBOLS = o -> o instanceof Symbols;
 
@@ -70,14 +71,14 @@ public class JLispInterpreter3 {
         if (IS_EXP.test(o)) {
             return eval((Cons) o, env);
         } else if (IS_SYMBOLS.test(o)) {
-            return eval(markSubExp(exp,o), env);
+            return eval(markSubExp(exp, o), env);
         } else {
             return o;
         }
     }
 
     private static Cons markSubExp(Cons parent, Object obj) {
-        return Cons.of(Collections.singletonList(obj), parent, Cons.ConsType.SUB_EXP);
+        return Cons.of(IS_EXP.test(obj) ? ((Cons) obj).list() : Collections.singletonList(obj), parent, Cons.ConsType.SUB_EXP);
     }
 
     @Value(staticConstructor = "of")
@@ -99,10 +100,16 @@ public class JLispInterpreter3 {
             reg("/", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce((a, b) -> a / b).orElse(null));
             reg("load", applyArgs -> load(applyArgs.getEnv(), applyArgs.getLazyArgs().get(), applyArgs.getEvalStr()));
             reg("lambda", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv()));
-            reg("quote", applyArgs -> quote(applyArgs.getExp(),applyArgs.getEnv()));
-            reg("display", applyArgs -> { System.out.print(applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv()));return null; });
-            reg("newline", applyArgs -> { System.out.println();return null;});
-            reg("begin", applyArgs ->  applyArgs.getEval().apply(applyArgs.getExp(),applyArgs.getEnv()) );
+            reg("quote", applyArgs -> quote(applyArgs.getExp(), applyArgs.getEnv()));
+            reg("display", applyArgs -> {
+                System.out.print(applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv()));
+                return null;
+            });
+            reg("newline", applyArgs -> {
+                System.out.println();
+                return null;
+            });
+            reg("begin", applyArgs -> applyArgs.getEval().apply(markExp(applyArgs.getExp().parent(), applyArgs.getExp().data().toArray()), applyArgs.getEnv()));
             reg("define", FunManager::define);
             reg("define-macro", FunManager::defineMacro);
             reg("let", applyArgs -> let(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
@@ -130,24 +137,26 @@ public class JLispInterpreter3 {
                 }
 
                 private void bindEnv(ApplyArgs applyArgs, Env env) {
-                    //参数值
                     Object[] x = applyArgs.getLazyArgs().get();
                     // 看是否有可变参数
-                    List<Object> args = cdr.carCons().list();
-                    int argsSize = args.size();
-                    boolean indefiniteLengthArgsFlag = argsSize > 1 && ((Symbols) args.get(argsSize - 2)).getVal().equals(".");
-                    validateTrue((indefiniteLengthArgsFlag || args.size() == x.length)&&x.length>=argsSize-1, cdr.parent() + "参数不一致");
-                    int i = 0;
-                    if (indefiniteLengthArgsFlag) {
-                        for (int j = 0; j < argsSize - 2; j++) {
-                            env.setEnv(((Symbols) args.get(i)), x[i]);
-                            i++;
-                        }
-                        env.setEnv(((Symbols) args.get(argsSize - 1)), markList(Arrays.copyOfRange(x, argsSize - 2, x.length)));
+                    List<Object> args0 = cdr.carCons().list();
+                    int argsSize = args0.size();
+                    boolean indefiniteLengthArgsFlag = argsSize > 1 && ((Symbols) args0.get(argsSize - 2)).getVal().equals(".");
+                    validateTrue((indefiniteLengthArgsFlag && x.length >= argsSize - 2) || args0.size() <= x.length, cdr.parent() + "参数不一致");
+                    //参数值
+
+                    Cons val = x.length == 1 && IS_EXP.test(x[0]) ? (Cons) x[0] : markExp(x);
+                    Cons args = cdr.carCons();
+                    loopBind(env, args, val);
+                }
+
+                private void loopBind(Env env, Cons args, Cons val) {
+                    if (args.carSymbols().equals(Symbols.of("."))) {
+                        loopBind(env, args.cdr(), val.data().size() == 1 && IS_EXP.test(val.car()) ? val : markList(val));
                     } else {
-                        for (Object argName : args) {
-                            env.setEnv(((Symbols) argName), x[i]);
-                            i++;
+                        env.setEnv(args.carSymbols(), val.car());
+                        if (!args.cdr().isEmpty()) {
+                            loopBind(env, args.cdr(), val.cdr());
                         }
                     }
                 }
@@ -159,51 +168,64 @@ public class JLispInterpreter3 {
             };
         }
 
-        private static Object quote(Cons cdr,Env env) {
+        private static Object quote(Cons cdr, Env env) {
             // 支持 ， ,@
-            //,紧跟的表达式需要eval  ,@ 紧跟的表达式需要先 splice 在 eval
+            //,紧跟的表达式需要eval  ,@ 紧跟的表达式需要先 eval 在 flatMap
             Object car = cdr.car();
-            if(IS_EXP.test(car)){
+            if (IS_EXP.test(car)) {
                 Symbols s0 = Symbols.of(",");
                 Symbols s1 = Symbols.of(",@");
                 Cons cons = cdr.carCons();
-                if(cons.data().stream().anyMatch(o->o.equals(s0)||o.equals(s1))){
-                    Cons exps = markExp();
-                    Object pre = null;
-                    for (Object o : cons) {
-                        if(s0.equals(pre)){
-                            exps.add(getAtom(o, cdr,env));
-                        }else if(s1.equals(pre)){
-                            Object obj = getAtom(o, cdr, env);
-                            validateTrue(IS_EXP.test(obj),s1+" The return value of the last element needs to be an list");
-                            ((Cons)obj).data().forEach(exps::add);
-                        }else if (!s0.equals(o)&&!s1.equals(o)){
-                            exps.add(o);
-                        }
-                        pre = o;
-                    }
-                    return exps;
-                }else{
-                    return car;
+                if (cons.data().stream().anyMatch(o -> o.equals(s0) || o.equals(s1))) {
+                    return quoteRender(cons, cdr, env);
+                } else {
+                    Cons temp = cons.cloneEmpty();
+                    cons.data().stream().map(o -> IS_EXP.test(o) ? quoteRender((Cons) o, cons, env) : o).forEach(temp::add);
+                    return temp;
                 }
-            }else {
+            } else {
                 return car;
             }
         }
 
+        private static Cons quoteRender(Cons cons, Cons parent, Env env) {
+            Symbols s0 = Symbols.of(",");
+            Symbols s1 = Symbols.of(",@");
+            Cons exps = cons.cloneEmpty();
+            Object pre = null;
+            for (Object o : cons) {
+                if (s0.equals(pre)) {
+                    exps.add(getAtom(o, parent, env));
+                } else if (s1.equals(pre)) {
+                    Object obj = getAtom(o, parent, env);
+                    validateTrue(IS_EXP.test(obj), s1 + " The return value of the last element needs to be an list");
+                    ((Cons) obj).data().forEach(exps::add);
+                } else if (!s0.equals(o) && !s1.equals(o)) {
+                    if (IS_EXP.test(o)) {
+                        exps.add(quoteRender((Cons) o, (Cons) o, env));
+                    } else {
+                        exps.add(o);
+                    }
+                }
+                pre = o;
+            }
+            return exps;
+        }
+
         private static Object load(Env env, Object[] args, BiFunction<String, Env, Object> eval) {
-            Arrays.asList(args).forEach(d -> {
+            Object o = null;
+            for (Object d : args) {
                 validateTrue(d instanceof Strings, d + " type error");
                 String file = ((Strings) d).getVal();
                 String str = FileUtils.readFile(file);
-                eval.apply(str, env);
-            });
-            return null;
+                o = eval.apply(str, env);
+            }
+            return o;
         }
 
         private static Object if0(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {
             Object car = cdr.car();
-            boolean isTure = toBoolean(IS_EXP.test(car)?eval.apply(cdr.carCons(), env):car);
+            boolean isTure = toBoolean(IS_EXP.test(car) ? eval.apply(cdr.carCons(), env) : car);
             if (isTure) {
                 Object then = cdr.cdr().car();
                 return getAtom(then, cdr.cdr(), env);
@@ -246,11 +268,11 @@ public class JLispInterpreter3 {
         private static Object defineMacro(ApplyArgs applyArgs) {
             Cons cdr = applyArgs.getExp();
             validateTrue(applyArgs.getEnv().noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
-            Function<ApplyArgs,Object> applyFun = (applyArgs1)->{
-                Cons cons = markList(Symbols.of("apply"), cdr.cdr().car(),markQuote(applyArgs1.getExp().list().toArray()));
+            Function<ApplyArgs, Object> applyFun = (applyArgs1) -> {
+                Cons cons = markList(Symbols.of("apply"), cdr.cdr().car(), markQuote(applyArgs1.getExp().list().toArray()));
                 Object apply = applyArgs1.getEval().apply(cons, applyArgs1.getEnv());
-                System.out.println(apply);
-                return getAtom(apply,cdr,applyArgs1.getEnv());
+                log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
+                return getAtom(apply, cdr, applyArgs1.getEnv());
             };
             applyArgs.getEnv().setEnv(cdr.carSymbols(), applyFun);
             return null;
@@ -258,16 +280,16 @@ public class JLispInterpreter3 {
 
         private static Object let(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {
             Object car0 = cdr.car();
-            validateTrue(car0 instanceof Cons && cdr.data().size() == 2, "please check" + car0);
+            validateTrue(car0 instanceof Cons && cdr.data().size() > 1, "please check" + car0);
             Env env0 = Env.newInstance(env);
             Cons car = cdr.carCons();
-            Cons body = cdr.cdr().carCons();
-            for (Object con : car) {
-                validateTrue(IS_EXP.test(con), "please check" + con);
-                Cons item = (Cons) con;
+            Cons body = cdr.cdr();
+            while (!car.isEmpty()) {
+                Cons item = car.carCons();
                 Symbols var = item.carSymbols();
                 validateTrue(env0.noContains(var), "Do not repeat the let " + var);
                 env0.setEnv(var, eval.apply(item.cdr(), env));
+                car = car.cdr();
             }
             return eval.apply(body, env0);
         }
@@ -287,7 +309,7 @@ public class JLispInterpreter3 {
         private static Object apply0(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {
             // 此处后期需重构
             Object f = cdr.car();
-            f = getAtom(getAtom(f, cdr, env),cdr,env);
+            f = getAtom(getAtom(f, cdr, env), cdr, env);
             if (IS_FUN.test(f)) {
                 return apply(f, flatMap(cdr.cdr(), env, eval), env);
             } else {
@@ -296,31 +318,25 @@ public class JLispInterpreter3 {
             }
         }
 
-        private static Cons flatMap(Cons args, Env env,BiFunction<Cons, Env, Object> eval){
+        private static Cons flatMap(Cons args, Env env, BiFunction<Cons, Env, Object> eval) {
             List<Object> list = args.list();
             Cons exp = markExp(list.subList(0, list.size() - 1).toArray());
             Object last = list.get(list.size() - 1);
-            if(IS_EXP.test(last)){
+            if (IS_EXP.test(last)) {
                 Cons last1 = (Cons) last;
                 Object r = eval.apply(last1, env);
-                if(IS_EXP.test(r)/*判断是列表*/){
+                if (IS_EXP.test(r)/*判断是列表*/) {
                     Cons r1 = (Cons) r;
                     // 此处最好比较的是全局的
-                    boolean quote =  IS_SYMBOLS.test(r1.parent().car())&&env.env(r1.parent().carSymbols()).orElseThrow(RuntimeException::new).equals(FUNCTIONAL.get("quote"));
-                    r1.data().stream().map(o->IS_EXP.test(o)&&quote?markQuote(((Cons)o).data().toArray()):o).forEach(exp::add);
-                }else{
+                    boolean quote = IS_SYMBOLS.test(r1.parent().car()) && env.env(r1.parent().carSymbols()).orElseThrow(RuntimeException::new).equals(FUNCTIONAL.get("quote"));
+                    r1.data().stream().map(o -> IS_EXP.test(o) && quote ? markQuote(((Cons) o).data().toArray()) : o).forEach(exp::add);
+                } else {
                     exp.add(last);
                 }
-            }else{
+            } else {
                 exp.add(last);
             }
             return exp;
-        }
-
-        private static void validateTrue(boolean flag, String err) {
-            if (!flag) {
-                throw new IllegalArgumentException(err);
-            }
         }
 
         private static void regBooleanFun() {
@@ -343,9 +359,15 @@ public class JLispInterpreter3 {
         }
 
         private static void regCons() {
-            reg("cons", applyArgs -> markList(Arrays.copyOf(applyArgs.getLazyArgs().get(), 2)));
+            reg("cons", applyArgs -> {
+                Object[] objects = applyArgs.getLazyArgs().get();
+                return warp(markCons(objects[0], objects[1]));
+            });
             reg("car", applyArgs -> ((Cons) (applyArgs.getLazyArgs().get()[0])).car());
-            reg("cdr", applyArgs -> ((Cons) (applyArgs.getLazyArgs().get()[0])).cdr().car());
+            reg("cdr", applyArgs -> {
+                Cons x = (Cons) applyArgs.getLazyArgs().get()[0];
+                return x.isCons() ? x.list().get(1) : x.cdr();
+            });
             reg("set-car!", applyArgs -> {
                 Object[] x = applyArgs.getLazyArgs().get();
                 ((Cons) x[0]).list().set(0, x[1]);
@@ -366,12 +388,20 @@ public class JLispInterpreter3 {
                 Cons cons = (Cons) x[0];
                 return markList(cons.list().subList((Integer) x[1], cons.list().size()));
             });
+            reg("null?", applyArgs -> {
+                Object r = applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv());
+                return warp(IS_EXP.test(r) && ((Cons) r).isEmpty());
+            });
+            reg("cons->arraylist", applyArgs -> warp(applyArgs.getLazyArgs().get()[0]));
+
         }
 
-        private static void regSymbolsFun(){
+        private static void regSymbolsFun() {
             reg("symbol?", applyArgs -> warp(applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv()) instanceof Symbols));
             reg("eqv?", applyArgs -> warp(applyArgs.getExp().car().equals(applyArgs.getExp().cdr().car())));
+            reg("gensym", applyArgs -> Symbols.of("gen-" + new Random().nextInt(100)));
         }
+
 
         private static Object predicate(Cons exp, Supplier<Object[]> lazyArgs, BiPredicate<Object, Object> predicates) {
             Object[] objs = lazyArgs.get();
@@ -391,20 +421,40 @@ public class JLispInterpreter3 {
         private static boolean toBoolean(Object o) {
             if (o instanceof Boolean) {
                 return (Boolean) o;
-            }else if(o instanceof Booleans){
+            } else if (o instanceof Booleans) {
                 return ((Booleans) o).getVal();
+            } else if (o instanceof Cons) {
+                return !((Cons) o).isEmpty();
             } else {
                 return !o.equals(0);
             }
         }
 
-        private static Object warp(Object o){
-            if(o instanceof String){
+        private static Object warp(Object o) {
+            if (o instanceof String) {
                 return Strings.of((String) o);
-            }if (o instanceof Boolean){
+            }
+            if (o instanceof Boolean) {
                 return Booleans.of((Boolean) o);
             }
+            if (o instanceof Cons && ((Cons) o).isCons()) {
+                Cons list = markList();
+                Cons x = (Cons) o;
+                if (x.cdr().isCons()||x.cdr().isList()) {
+                    while (!x.isEmpty()) {
+                        list.add(x.car());
+                        x = x.cdr();
+                    }
+                    return list;
+                }
+            }
             return o;
+        }
+
+        private static void validateTrue(boolean flag, String err) {
+            if (!flag) {
+                throw new IllegalArgumentException(err);
+            }
         }
 
         private static Stream<Integer> toIntStream(Supplier<Object[]> supplierObjs) {
@@ -415,6 +465,10 @@ public class JLispInterpreter3 {
             return Cons.of(new ArrayList<>(Arrays.asList(data)), null, Cons.ConsType.LIST);
         }
 
+        private static Cons markCons(Object o, Object o2) {
+            return Cons.of(Arrays.asList(o, o2), null, Cons.ConsType.CONS);
+        }
+
         private static Cons markExp(Object... data) {
             return Cons.of(new ArrayList<>(Arrays.asList(data)), null, Cons.ConsType.EXP);
         }
@@ -423,9 +477,9 @@ public class JLispInterpreter3 {
             return Cons.of(new ArrayList<>(Arrays.asList(data)), parent, Cons.ConsType.EXP);
         }
 
-        private static Cons markQuote(Object... data){
+        private static Cons markQuote(Object... data) {
             Cons quote = Cons.of(new ArrayList<>(Collections.singletonList(Symbols.of("quote"))), null, Cons.ConsType.QUOTE);
-            if(data.length>0){
+            if (data.length > 0) {
                 quote.add(markExp(quote, data));
             }
             return quote;
