@@ -285,7 +285,7 @@ public class JLispInterpreter3 {
                 Cons cons = markList(Symbols.of("apply"), cdr.cdr().car(), markQuote(applyArgs1.getExp().list().toArray()));
                 Object apply = applyArgs1.eval(cons);
                 log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
-                return applyArgs1.eval(markList(Symbols.of("apply"), apply));
+                return getAtom( apply,applyArgs1.getExp(),applyArgs1.getEnv());
             };
             applyArgs.getEnv().setEnv(cdr.carSymbols(), applyFun);
             return null;
@@ -325,7 +325,7 @@ public class JLispInterpreter3 {
             if (IS_FUN.test(f)) {
                 return apply(f, cdr, env, flatMapArgs(cdr.cdr(), env));
             } else {
-                return f;
+                return getAtom(f, cdr, env);
             }
         }
 
