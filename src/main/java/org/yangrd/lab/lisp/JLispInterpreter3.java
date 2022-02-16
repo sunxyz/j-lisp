@@ -273,8 +273,12 @@ public class JLispInterpreter3 {
         private static Object define(ApplyArgs applyArgs) {
             Cons cdr = applyArgs.getExp();
             Object val = applyArgs.eval(cdr.cdr());
-            validateTrue(applyArgs.getEnv().noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
-            applyArgs.getEnv().setEnv(cdr.carSymbols(), val);
+            Env env = applyArgs.getEnv();
+            while (Objects.nonNull(env.parent())&&Objects.nonNull(env.parent().parent())){
+                env = env.parent();
+            }
+            validateTrue(env.noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
+            env.setEnv(cdr.carSymbols(), val);
             return null;
         }
 
