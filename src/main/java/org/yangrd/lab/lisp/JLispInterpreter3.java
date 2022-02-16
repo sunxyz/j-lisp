@@ -11,7 +11,6 @@ import org.yangrd.lab.lisp.support.FileUtils;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -60,7 +59,7 @@ public class JLispInterpreter3 {
     }
 
     private static Object apply(Object v, Cons cdr, Env env) {
-        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> cdr.data().stream().map(o -> getAtom(o, cdr, env)).toArray(), JLispInterpreter3::eval, JLispInterpreter3::eval));
+        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> cdr.data().stream().map(o -> getAtom(o, cdr, env)).toArray()));
     }
 
     private static Object getAtom(Object o, Cons exp, Env env) {
@@ -82,40 +81,54 @@ public class JLispInterpreter3 {
         Cons exp;
         Env env;
         Supplier<Object[]> lazyArgs;
-        BiFunction<Cons, Env, Object> eval;
-        BiFunction<String, Env, Object> evalStr;
+
+        public Object eval(Cons exp) {
+            return eval(exp, this.env);
+        }
+
+        public Object eval(Cons exp, Env env) {
+            return JLispInterpreter3.eval(exp, env);
+        }
+
+        public Object eval(String exp) {
+            return JLispInterpreter3.eval(exp, this.env);
+        }
+
+        public Object[] args() {
+            return lazyArgs.get();
+        }
     }
 
     static class FunManager {
         private static final Map<String, Function<ApplyArgs, Object>> FUNCTIONAL = new ConcurrentHashMap<>();
 
         static {
-            reg("+", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce(Integer::sum).orElse(null));
-            reg("-", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce((a, b) -> a - b).orElse(null));
-            reg("*", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce((a, b) -> a * b).orElse(null));
-            reg("/", applyArgs -> toIntStream(applyArgs.getLazyArgs()).reduce((a, b) -> a / b).orElse(null));
-            reg("load", applyArgs -> load(applyArgs.getEnv(), applyArgs.getLazyArgs().get(), applyArgs.getEvalStr()));
+            reg("+", applyArgs -> toIntStream(applyArgs.args()).reduce(Integer::sum).orElse(null));
+            reg("-", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a - b).orElse(null));
+            reg("*", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a * b).orElse(null));
+            reg("/", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a / b).orElse(null));
+            reg("load", FunManager::load);
             reg("lambda", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv()));
             reg("quote", applyArgs -> quote(applyArgs.getExp(), applyArgs.getEnv()));
             reg("display", applyArgs -> {
-                System.out.print(applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv()));
+                System.out.print(applyArgs.eval(applyArgs.getExp()));
                 return null;
             });
             reg("newline", applyArgs -> {
                 System.out.println();
                 return null;
             });
-            reg("begin", applyArgs -> applyArgs.getEval().apply(markExp(applyArgs.getExp().parent(), applyArgs.getExp().data().toArray()), applyArgs.getEnv()));
+            reg("begin", applyArgs -> applyArgs.eval(markExp(applyArgs.getExp().parent(), applyArgs.getExp().data().toArray())));
             reg("define", FunManager::define);
             reg("define-macro", FunManager::defineMacro);
-            reg("let", applyArgs -> let(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
-            reg("set!", applyArgs -> set(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
-            reg("apply", applyArgs -> apply0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
+            reg("let", applyArgs -> let(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
+            reg("set!", applyArgs -> set(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
+            reg("apply", applyArgs -> apply0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
             regBooleanFun();
             regCons();
             regSymbolsFun();
-            reg("if", applyArgs -> if0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
-            reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs.getEval()));
+            reg("if", applyArgs -> if0(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
+            reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
         }
 
         private static void reg(String optKey, Function<ApplyArgs, Object> opt) {
@@ -129,11 +142,11 @@ public class JLispInterpreter3 {
                     Cons body = cdr.cdr();
                     Env env0 = Env.newInstance(env);
                     bindEnv(applyArgs, env0);
-                    return applyArgs.getEval().apply(body, env0);
+                    return applyArgs.eval(body, env0);
                 }
 
                 private void bindEnv(ApplyArgs applyArgs, Env env) {
-                    Object[] x = applyArgs.getLazyArgs().get();
+                    Object[] x = applyArgs.args();
                     // 看是否有可变参数
                     List<Object> args0 = cdr.carCons().list();
                     int argsSize = args0.size();
@@ -169,16 +182,8 @@ public class JLispInterpreter3 {
             //,紧跟的表达式需要eval  ,@ 紧跟的表达式需要先 eval 在 flatMap
             Object car = cdr.car();
             if (IS_EXP.test(car)) {
-                Symbols s0 = Symbols.of(",");
-                Symbols s1 = Symbols.of(",@");
                 Cons cons = cdr.carCons();
-                if (cons.data().stream().anyMatch(o -> o.equals(s0) || o.equals(s1))) {
-                    return quoteRender(cons, cdr, env);
-                } else {
-                    Cons temp = cons.cloneEmpty();
-                    cons.data().stream().map(o -> IS_EXP.test(o) ? quoteRender((Cons) o, cons, env) : o).forEach(temp::add);
-                    return temp;
-                }
+                return quoteRender(cons, cdr, env);
             } else {
                 return car;
             }
@@ -208,13 +213,14 @@ public class JLispInterpreter3 {
             return exps;
         }
 
-        private static Object load(Env env, Object[] args, BiFunction<String, Env, Object> eval) {
+        private static Object load(ApplyArgs applyArgs) {
+            Cons args = applyArgs.getExp();
             Object o = null;
             for (Object d : args) {
                 validateTrue(d instanceof Strings, d + " type error");
                 String file = ((Strings) d).getVal();
                 String str = FileUtils.readFile(file);
-                o = eval.apply(str, env);
+                o = applyArgs.eval(str);
             }
             return o;
         }
@@ -255,7 +261,7 @@ public class JLispInterpreter3 {
 
         private static Object define(ApplyArgs applyArgs) {
             Cons cdr = applyArgs.getExp();
-            Object val = applyArgs.eval.apply(cdr.cdr(), applyArgs.getEnv());
+            Object val = applyArgs.eval(cdr.cdr());
             validateTrue(applyArgs.getEnv().noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
             applyArgs.getEnv().setEnv(cdr.carSymbols(), val);
             return null;
@@ -266,7 +272,7 @@ public class JLispInterpreter3 {
             validateTrue(applyArgs.getEnv().noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
             Function<ApplyArgs, Object> applyFun = (applyArgs1) -> {
                 Cons cons = markList(Symbols.of("apply"), cdr.cdr().car(), markQuote(applyArgs1.getExp().list().toArray()));
-                Object apply = applyArgs1.getEval().apply(cons, applyArgs1.getEnv());
+                Object apply = applyArgs1.eval(cons);
                 log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
                 return getAtom(apply, cdr, applyArgs1.getEnv());
             };
@@ -305,12 +311,11 @@ public class JLispInterpreter3 {
         private static Object apply0(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {
             // 此处后期需重构
             Object f = cdr.car();
-            f = getAtom(getAtom(f, cdr, env), cdr, env);
+            f = getAtom(f, cdr, env);
             if (IS_FUN.test(f)) {
                 return apply(f, flatMap(cdr.cdr(), env, eval), env);
             } else {
                 return f;
-//                throw new IllegalArgumentException("apply " + cdr);
             }
         }
 
@@ -337,14 +342,14 @@ public class JLispInterpreter3 {
 
         private static void regBooleanFun() {
             reg("and", applyArgs -> {
-                Object[] ts = applyArgs.getLazyArgs().get();
-                return Stream.of(ts).map(o->getAtom(o,applyArgs.getExp(), applyArgs.getEnv())).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false;
+                Object[] ts = applyArgs.args();
+                return Stream.of(ts).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false;
             });
-            reg("or", applyArgs -> Stream.of(applyArgs.getLazyArgs().get()).map(o->getAtom(o,applyArgs.getExp(), applyArgs.getEnv())).filter(FunManager::toBoolean).findFirst().orElse(false));
+            reg("or", applyArgs -> Stream.of(applyArgs.args()).filter(FunManager::toBoolean).findFirst().orElse(false));
             reg("not", applyArgs -> {
-                Object[] ts = applyArgs.getLazyArgs().get();
+                Object[] ts = applyArgs.args();
                 validateTrue(ts.length == 1, applyArgs.getExp() + "not args only one");
-                return !toBoolean(getAtom(ts[0] ,applyArgs.getExp(), applyArgs.getEnv()));
+                return !toBoolean(ts[0]);
             });
             reg("<", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x < (Integer) y : x.toString().length() < y.toString().length()));
             reg("<=", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x <= (Integer) y : x.toString().length() <= y.toString().length()));
@@ -356,58 +361,57 @@ public class JLispInterpreter3 {
 
         private static void regCons() {
             reg("cons", applyArgs -> {
-                Object[] objects = applyArgs.getLazyArgs().get();
+                Object[] objects = applyArgs.args();
                 return warp(markCons(objects[0], objects[1]));
             });
-            reg("car", applyArgs -> ((Cons) (applyArgs.getLazyArgs().get()[0])).car());
+            reg("car", applyArgs -> ((Cons) (applyArgs.args()[0])).car());
             reg("cdr", applyArgs -> {
-                Cons x = (Cons) applyArgs.getLazyArgs().get()[0];
+                Cons x = (Cons) applyArgs.args()[0];
                 return x.isCons() ? x.list().get(1) : x.cdr();
             });
             reg("set-car!", applyArgs -> {
-                Object[] x = applyArgs.getLazyArgs().get();
+                Object[] x = applyArgs.args();
                 ((Cons) x[0]).list().set(0, x[1]);
                 return null;
             });
             reg("set-cdr!", applyArgs -> {
-                Object[] x = applyArgs.getLazyArgs().get();
+                Object[] x = applyArgs.args();
                 ((Cons) x[0]).list().set(1, x[1]);
                 return null;
             });
-            reg("list", applyArgs -> markList(applyArgs.getLazyArgs().get()));
+            reg("list", applyArgs -> markList(applyArgs.args()));
             reg("list-ref", applyArgs -> {
-                Object[] x = applyArgs.getLazyArgs().get();
+                Object[] x = applyArgs.args();
                 return ((Cons) x[0]).list().get((Integer) x[1]);
             });
             reg("list-tail", applyArgs -> {
-                Object[] x = applyArgs.getLazyArgs().get();
+                Object[] x = applyArgs.args();
                 Cons cons = (Cons) x[0];
                 return markList(cons.list().subList((Integer) x[1], cons.list().size()));
             });
             reg("null?", applyArgs -> {
-                Object r = applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv());
+                Object r = applyArgs.eval(applyArgs.getExp());
                 return warp(IS_EXP.test(r) && ((Cons) r).isEmpty());
             });
-            reg("cons->arraylist", applyArgs -> warp(applyArgs.getLazyArgs().get()[0]));
+            reg("cons->arraylist", applyArgs -> warp(applyArgs.args()[0]));
 
         }
 
         private static void regSymbolsFun() {
-            reg("symbol?", applyArgs -> warp(applyArgs.getEval().apply(applyArgs.getExp(), applyArgs.getEnv()) instanceof Symbols));
+            reg("symbol?", applyArgs -> warp(applyArgs.eval(applyArgs.getExp()) instanceof Symbols));
             reg("eqv?", applyArgs -> warp(applyArgs.getExp().car().equals(applyArgs.getExp().cdr().car())));
-            reg("gensym", applyArgs -> Symbols.of("gen-" + new Random().nextInt(100)));
+            reg("gensym", applyArgs -> Symbols.of("gen-" + new Random().nextInt(1024)));
         }
 
-
         private static Object predicate(ApplyArgs applyArgs, BiPredicate<Object, Object> predicates) {
-            Object[] objs = applyArgs.getLazyArgs().get();
+            Object[] objs = applyArgs.args();
             validateTrue(objs.length > 1, applyArgs.getExp() + " args qty > 1 ");
-            Object o = getAtom(objs[0] ,applyArgs.getExp(), applyArgs.getEnv());
+            Object o = getAtom(objs[0], applyArgs.getExp(), applyArgs.getEnv());
             for (int i = 1; i < objs.length; i++) {
                 Object o1 = getAtom(objs[i], applyArgs.getExp(), applyArgs.getEnv());
                 boolean b = predicates.test(o, o1);
                 if (!b) {
-                    return b;
+                    return false;
                 }
                 o = o1;
             }
@@ -436,12 +440,14 @@ public class JLispInterpreter3 {
             if (o instanceof Cons && ((Cons) o).isCons()) {
                 Cons list = markList();
                 Cons x = (Cons) o;
-                if (x.data().size()>1&&IS_EXP.test(x.list().get(1))&&(x.cdr().isCons()||x.cdr().isList())) {
+                if (x.data().size() > 1 && IS_EXP.test(x.list().get(1)) && (x.cdr().isCons() || x.cdr().isList())) {
                     while (!x.isEmpty()) {
                         list.add(x.car());
-                        if(IS_EXP.test(x.list().get(1))){
+                        if (x.data().size() == 1) {
+                            x = Cons.EMPTY;
+                        } else if (IS_EXP.test(x.list().get(1))) {
                             x = x.cdr();
-                        }else{
+                        } else {
                             list.add(x.list().get(1));
                             x = Cons.EMPTY;
                         }
@@ -459,8 +465,8 @@ public class JLispInterpreter3 {
             }
         }
 
-        private static Stream<Integer> toIntStream(Supplier<Object[]> supplierObjs) {
-            return Stream.of(supplierObjs.get()).map(Object::toString).map(Integer::valueOf).collect(Collectors.toList()).stream();
+        private static Stream<Integer> toIntStream(Object[] objs) {
+            return Stream.of(objs).map(Object::toString).map(Integer::valueOf);
         }
 
         private static Cons markList(Object... data) {
