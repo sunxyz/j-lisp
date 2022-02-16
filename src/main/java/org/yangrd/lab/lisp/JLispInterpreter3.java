@@ -309,7 +309,6 @@ public class JLispInterpreter3 {
         }
 
         private static Object apply0(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {
-            // 此处后期需重构
             Object f = cdr.car();
             f = getAtom(f, cdr, env);
             if (IS_FUN.test(f)) {
