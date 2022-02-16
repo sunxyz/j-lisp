@@ -50,7 +50,7 @@ public class Cons implements Iterable<Object> {
     }
 
     public Cons cdr() {
-        return isCons()?(Cons)data.get(1): Cons.of(data.subList(1, data.size() ), this,SUB_EXP);
+        return isCons()?(data.get(1) instanceof Cons?(Cons)data.get(1):Cons.of(Collections.singletonList(data.get(1)),null,EXP)): Cons.of(data.subList(1, data.size() ), this,SUB_EXP);
     }
 
     public Collection<Object> data() {
@@ -76,7 +76,9 @@ public class Cons implements Iterable<Object> {
     public boolean isList() {
         return LIST.equals(type);
     }
-
+    public boolean isQuote() {
+        return QUOTE.equals(type);
+    }
 
     public boolean isEmpty(){
         return data.isEmpty();
@@ -96,7 +98,7 @@ public class Cons implements Iterable<Object> {
 //        if(type.equals(CONS)){
 //            return  data.stream().filter(o ->  (!(o instanceof Cons) )|| !((Cons) o).isEmpty()).map(Object::toString).reduce((x, y) -> x + " " + y).map(o->this.parent!=null?o:"(" + o + ")").orElse("()");
 //        }
-        Optional<String> reduce = data.stream().map(Object::toString).reduce((x, y) -> x + " " + y).map(o -> "(" + o + ")");
+        Optional<String> reduce = data.stream().map(o->Objects.isNull(o)?"nil":o).map(Object::toString).reduce((x, y) -> x + " " + y).map(o -> "(" + o + ")");
         return reduce.orElse("()");
     }
 
