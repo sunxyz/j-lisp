@@ -10,18 +10,19 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class Parse {
 
     private static final String PREFIX = "(";
     private static final String SUFFIX = ")";
-    private static final List<String> SPLIT_SYMBOLS = Arrays.asList(",", ",@", "`");
+    private static final List<String> FLAT_SYMBOLS = Arrays.asList(",@", ",");
+    private static final List<String> SPLIT_SYMBOLS = Collections.singletonList("`");
 
     public static Cons parse(String expStr) {
-        return parse(format(replaceSpace(expStr)), Cons.newInstance(null));
+        return parse(format(replaceSpace(expStr.replaceAll("\"", "'"))), Cons.newInstance(null));
     }
 
     private static Cons parse(String expStr, Cons r) {
@@ -35,11 +36,11 @@ public class Parse {
             String subExpStr = nextStr.substring(0, nextFixIndex);
             if (isPush) {
                 Cons astList = Cons.newInstance(r);
-                exp2List(subExpStr).stream().map(o -> o instanceof Cons ? ConsMarker.markExp(astList, ((Cons) o).data().toArray()) : o).forEach(astList::add);
+                exp2List(subExpStr, astList).forEach(astList::add);
                 r.add(astList);
                 return parse(tempExpStr.substring(nextFixIndex + 1), astList);
             } else {
-                exp2List(subExpStr).stream().map(o -> o instanceof Cons ? ConsMarker.markExp(r.parent(), ((Cons) o).data().toArray()) : o).forEach(r.parent()::add);
+                exp2List(subExpStr, r.parent()).forEach(r.parent()::add);
                 return parse(tempExpStr.substring(nextFixIndex + 1), r.parent());
             }
         } else {
@@ -47,8 +48,8 @@ public class Parse {
         }
     }
 
-    private static List<Object> exp2List(String exp) {
-        return exp.trim().length() == 0 ? Collections.emptyList() : Arrays.stream(exp.trim().split(" ")).map(Parse::parseObj).collect(Collectors.toList());
+    private static List<Object> exp2List(String exp, Cons parent) {
+        return exp.trim().length() == 0 ? Collections.emptyList() : Arrays.stream(exp.trim().split(" ")).map(Parse::parseObj).map(o -> o instanceof Cons ? ConsMarker.markExp(parent, ((Cons) o).data().toArray()) : o).flatMap(o -> o instanceof List ? ((List<?>) o).stream() : Stream.of(o)).collect(Collectors.toList());
     }
 
     private static String format(String str) {
@@ -75,7 +76,8 @@ public class Parse {
             return Strings.of(atom.replaceAll("'", "").replaceAll("\\\\O", " "));
         } else {
             Optional<String> first = SPLIT_SYMBOLS.stream().filter(o -> atom.indexOf(o) == 0).findFirst();
-            return first.isPresent() && first.get().length() < atom.length() ? ConsMarker.markList(Symbols.of(first.get()), parseObj(atom.substring(first.get().length()))) : Symbols.of(atom);
+            Optional<String> flatFirst = FLAT_SYMBOLS.stream().filter(o -> atom.indexOf(o) == 0).findFirst();
+            return first.isPresent() && first.get().length() < atom.length() ? ConsMarker.markList(Symbols.of(first.get()), parseObj(atom.substring(first.get().length()))) : (flatFirst.isPresent() && flatFirst.get().length() < atom.length() ? Arrays.asList(Symbols.of(flatFirst.get()), parseObj(atom.substring(flatFirst.get().length()))) : Symbols.of(atom));
         }
     }
 }

@@ -1,18 +1,16 @@
 package org.yangrd.lab.lisp;
 
-import lombok.EqualsAndHashCode;
-import lombok.Value;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.yangrd.lab.lisp.atom.Atom;
-import org.yangrd.lab.lisp.atom.Booleans;
-import org.yangrd.lab.lisp.atom.Strings;
-import org.yangrd.lab.lisp.atom.Symbols;
+import org.yangrd.lab.lisp.atom.*;
 import org.yangrd.lab.lisp.support.ConsMarker;
 import org.yangrd.lab.lisp.support.FileUtils;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.*;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -69,15 +67,19 @@ public class JLispInterpreter3 {
         return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> args.length > 0 ? args : cdr.data().stream().map(o -> eval(o, cdr, env)).toArray()));
     }
 
-    @EqualsAndHashCode(callSuper = false)
-    @Value(staticConstructor = "of")
+    @RequiredArgsConstructor(staticName = "of")
+    @Getter
     public static class ApplyArgs extends EvalAndApplyProxy {
-        Cons exp;
-        Env env;
-        Supplier<Object[]> lazyArgs;
+        final Cons exp;
+        final Env env;
+        final Supplier<Object[]> lazyArgs;
+        private Object[] args;
 
         public Object[] args() {
-            return lazyArgs.get();
+            if (Objects.isNull(args)) {
+                args = lazyArgs.get();
+            }
+            return args;
         }
 
         public Cons argsCons() {
@@ -133,8 +135,11 @@ public class JLispInterpreter3 {
             reg("set!", applyArgs -> set(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
             reg("apply", applyArgs -> apply0(applyArgs, applyArgs.getExp(), applyArgs.getEnv()));
             regBooleanFun();
-            regCons();
+            regNumbersFun();
             regSymbolsFun();
+            regVectorsFun();
+            regStringsFun();
+            regConsFun();
             reg("if", applyArgs -> if0(applyArgs, applyArgs.getExp()));
             reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
         }
@@ -166,12 +171,14 @@ public class JLispInterpreter3 {
                 }
 
                 private void loopBind(Env env, Cons args, Cons val) {
-                    if (args.carSymbols().equals(Symbols.of("."))) {
-                        loopBind(env, args.cdr(), val.data().size() == 1 && IS_EXP.test(val.car()) ? val : ConsMarker.markList(val));
-                    } else {
-                        env.setEnv(args.carSymbols(), val.car());
-                        if (!args.cdr().isEmpty()) {
-                            loopBind(env, args.cdr(), val.cdr());
+                    if (!args.isEmpty()) {
+                        if (args.carSymbols().equals(Symbols.of("."))) {
+                            loopBind(env, args.cdr(), val.data().size() == 1 && IS_EXP.test(val.car()) ? val : ConsMarker.markList(val));
+                        } else {
+                            env.setEnv(args.carSymbols(), val.car());
+                            if (!args.cdr().isEmpty()) {
+                                loopBind(env, args.cdr(), val.cdr());
+                            }
                         }
                     }
                 }
@@ -272,8 +279,9 @@ public class JLispInterpreter3 {
             while (Objects.nonNull(env.parent()) && Objects.nonNull(env.parent().parent())) {
                 env = env.parent();
             }
-            validateTrue(env.noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
-            env.setEnv(cdr.carSymbols(), val);
+            Symbols symbols = cdr.carSymbols();
+            validateTrue(env.noContains(symbols), "Do not repeat the definition " + symbols);
+            env.setEnv(symbols, val);
             return null;
         }
 
@@ -356,6 +364,8 @@ public class JLispInterpreter3 {
                 validateTrue(ts.length == 1, applyArgs.getExp() + "not args only one");
                 return !toBoolean(ts[0]);
             });
+
+            reg("eqv?", applyArgs -> predicate(applyArgs, Object::equals));
             reg("<", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x < (Integer) y : x.toString().length() < y.toString().length()));
             reg("<=", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x <= (Integer) y : x.toString().length() <= y.toString().length()));
             reg("=", applyArgs -> predicate(applyArgs, Object::equals));
@@ -364,7 +374,7 @@ public class JLispInterpreter3 {
             reg(">=", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x >= (Integer) y : x.toString().length() >= y.toString().length()));
         }
 
-        private static void regCons() {
+        private static void regConsFun() {
             reg("cons", applyArgs -> {
                 Object[] objects = applyArgs.args();
                 return warp(ConsMarker.markCons(objects[0], objects[1]));
@@ -398,14 +408,59 @@ public class JLispInterpreter3 {
                 Object r = applyArgs.eval(applyArgs.getExp());
                 return warp(IS_EXP.test(r) && ((Cons) r).isEmpty());
             });
+            reg("pair?", applyArgs -> predicate(applyArgs, ((o, o2) -> o instanceof Cons && ((Cons) o).isCons() && o2 instanceof Cons && ((Cons) o2).isCons())));
             reg("cons->arraylist", applyArgs -> warp(applyArgs.args()[0]));
+            reg("length", applyArgs -> {
+                Object o = applyArgs.args()[0];
+                if (IS_EXP.test(o)) {
+                    return ((Cons) o).data().size();
+                } else if (o instanceof Strings) {
+                    return ((Strings) o).getVal().length();
+                } else if (o instanceof Vectors) {
+                    return ((Vectors) o).size();
+                } else {
+                    return 0;
+                }
+            });
 
         }
 
         private static void regSymbolsFun() {
             reg("symbol?", applyArgs -> warp(applyArgs.eval(applyArgs.getExp()) instanceof Symbols));
-            reg("eqv?", applyArgs -> warp(applyArgs.getExp().car().equals(applyArgs.getExp().cdr().car())));
             reg("gensym", applyArgs -> Symbols.of("gen-" + new Random().nextInt(1024)));
+            reg("symbol->string", applyArgs -> Strings.of(((Symbols) applyArgs.args()[0]).getVal()));
+        }
+
+        private static void regNumbersFun() {
+            reg("number?", applyArgs -> predicate(applyArgs, (o, o2) -> o instanceof Number && o2 instanceof Number));
+            reg("integer?", applyArgs -> predicate(applyArgs, (o, o2) -> o instanceof Integer && o2 instanceof Integer));
+            reg("number->string", applyArgs -> Strings.of(applyArgs.args()[0].toString()));
+        }
+
+        private static void regVectorsFun() {
+            reg("vector", applyArgs -> Vectors.of(applyArgs.argsCons().data().stream().map(o -> applyArgs.eval(o, applyArgs.getExp())).toArray()));
+            reg("make-vector", applyArgs -> Vectors.mark((Integer) applyArgs.eval(applyArgs.getExp().car(), applyArgs.getExp())));
+            reg("vector-ref", applyArgs -> ((Vectors) applyArgs.args()[0]).ref((Integer) applyArgs.args()[1]));
+            reg("vector-set!", applyArgs -> {
+                ((Vectors) applyArgs.args()[0]).set((Integer) applyArgs.args()[1], applyArgs.args()[2]);
+                return null;
+            });
+            reg("vector?", applyArgs -> applyArgs.args()[0] instanceof Vectors);
+        }
+
+        private static void regStringsFun() {
+            reg("symbol?", applyArgs -> warp(applyArgs.eval(applyArgs.getExp()) instanceof Symbols));
+            reg("string->list", applyArgs -> ConsMarker.markList(applyArgs.getArgs()[0]));
+            reg("string->number", applyArgs -> {
+                try {
+                    return Integer.valueOf(((Strings) applyArgs.args()[0]).getVal());
+                } catch (RuntimeException e) {
+                    log.warn(e.getLocalizedMessage());
+                    return Booleans.of(false);
+                }
+            });
+            reg("string->symbol", applyArgs -> Symbols.of(((Strings) applyArgs.args()[0]).getVal()));
+            reg("string-append", applyArgs -> warp(Arrays.stream(applyArgs.args()).map(o -> (Strings) o).map(Strings::getVal).collect(Collectors.joining())));
         }
 
         private static Object predicate(ApplyArgs applyArgs, BiPredicate<Object, Object> predicates) {
@@ -416,11 +471,11 @@ public class JLispInterpreter3 {
                 Object o1 = applyArgs.eval(objs[i], applyArgs.getExp(), applyArgs.getEnv());
                 boolean b = predicates.test(o, o1);
                 if (!b) {
-                    return false;
+                    return warp(false);
                 }
                 o = o1;
             }
-            return true;
+            return warp(true);
         }
 
         private static boolean toBoolean(Object o) {

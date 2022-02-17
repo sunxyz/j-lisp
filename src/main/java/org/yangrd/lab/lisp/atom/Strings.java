@@ -2,7 +2,9 @@ package org.yangrd.lab.lisp.atom;
 
 import lombok.Value;
 
-public interface Strings extends Atom<String>{
+public interface Strings{
+
+    String getVal();
 
     static Strings of(String str) {
         return new SimpleStr(str);
