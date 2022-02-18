@@ -12,7 +12,11 @@
                     (quote ())
                     (map g (cdr x) (if (null? y) (quote ()) (cdr y)))))))
     (define map (lambda (f l)(list-map l f)))
-
+    (define-macro defun (lambda (name args . body) (
+        `(
+            define ,name (lambda ,args ,@body)
+        )
+    )) )
     (
         define-macro defstruct (lambda (x  .  ff) (
             (let (
