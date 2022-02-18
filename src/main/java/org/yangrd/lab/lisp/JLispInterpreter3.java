@@ -121,11 +121,11 @@ public class JLispInterpreter3 {
             reg("display", applyArgs -> {
                 Object val = applyArgs.eval(applyArgs.getExp());
                 System.out.print(val instanceof Function ? "<procedure>" : val);
-                return null;
+                return Nil.NIL;
             });
             reg("newline", applyArgs -> {
                 System.out.println();
-                return null;
+                return Nil.NIL;
             });
             reg("begin", applyArgs -> applyArgs.eval(ConsMarker.markExp(applyArgs.getExp().parent(), applyArgs.getExp().data().toArray())));
             reg("define", FunManager::define);
@@ -141,6 +141,7 @@ public class JLispInterpreter3 {
             regConsFun();
             regDict();
             regBaseFun();
+            reg("nil", applyArgs -> Nil.NIL);
             reg("if", applyArgs -> if0(applyArgs, applyArgs.getExp()));
             reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
         }
@@ -229,7 +230,7 @@ public class JLispInterpreter3 {
 
         private static Object load(ApplyArgs applyArgs) {
             Cons args = applyArgs.getExp();
-            Object o = null;
+            Object o = Nil.NIL;
             for (Object d : args) {
                 validateTrue(d instanceof Strings, d + " type error");
                 String file = ((Strings) d).getVal();
@@ -249,7 +250,7 @@ public class JLispInterpreter3 {
                 if (cdr.cdr().cdr().data().size() > 0) {
                     return applyArgs.eval(cdr.cdr().cdr());
                 }
-                return null;
+                return Nil.NIL;
             }
         }
 
@@ -283,7 +284,7 @@ public class JLispInterpreter3 {
             Symbols symbols = cdr.carSymbols();
             validateTrue(env.noContains(symbols), "Do not repeat the definition " + symbols);
             env.setEnv(symbols, val);
-            return null;
+            return Nil.NIL;
         }
 
         private static Object defineMacro(ApplyArgs applyArgs) {
@@ -296,7 +297,7 @@ public class JLispInterpreter3 {
                 return applyArgs1.eval(apply, applyArgs1.getExp(), applyArgs1.getEnv());
             };
             applyArgs.getEnv().setEnv(cdr.carSymbols(), applyFun);
-            return null;
+            return Nil.NIL;
         }
 
         private static Object let(Cons cdr, Env env, BiFunction<Cons, Env, Object> eval) {
@@ -324,7 +325,7 @@ public class JLispInterpreter3 {
                 envParent = envParent.parent();
             }
             envParent.setEnv(var, val);
-            return null;
+            return Nil.NIL;
         }
 
         private static Object apply0(ApplyArgs applyArgs, Cons cdr, Env env) {
@@ -405,7 +406,7 @@ public class JLispInterpreter3 {
                 Cons cons = (Cons) x[0];
                 return ConsMarker.markList(cons.list().subList((Integer) x[1], cons.list().size()));
             });
-            reg("list-add", applyArgs ->{ ((Cons)applyArgs.args()[0]).add(applyArgs.args()[1]);return null;});
+            reg("list-add", applyArgs ->{ ((Cons)applyArgs.args()[0]).add(applyArgs.args()[1]);return Nil.NIL;});
             reg("list-map", applyArgs ->{
                 Cons list = (Cons)applyArgs.args()[0];
                 Function<ApplyArgs,Object> f = ( Function<ApplyArgs,Object>)applyArgs.args()[1];
@@ -415,7 +416,7 @@ public class JLispInterpreter3 {
                 if(o instanceof Cons){
                     return ((Cons) o).isEmpty();
                 }else {
-                    return Objects.isNull(o);
+                    return o instanceof Nil || Objects.isNull(o);
                 }
             }));
             reg("pair?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isCons()));
@@ -457,7 +458,7 @@ public class JLispInterpreter3 {
             reg("vector-ref", applyArgs -> ((Vectors) applyArgs.args()[0]).ref((Integer) applyArgs.args()[1]));
             reg("vector-set!", applyArgs -> {
                 ((Vectors) applyArgs.args()[0]).set((Integer) applyArgs.args()[1], applyArgs.args()[2]);
-                return null;
+                return Nil.NIL;
             });
             reg("vector->list",applyArgs -> ConsMarker.markList(((Vectors)applyArgs.getArgs()[0]).data()));
         }
@@ -493,7 +494,7 @@ public class JLispInterpreter3 {
         private static void regBaseFun(){
             reg("while", applyArgs -> {
                 Cons exp = applyArgs.getExp();
-                Object o = ConsMarker.getEmpty();
+                Object o = Nil.NIL;
                 while (toBoolean(applyArgs.eval(exp.car(),exp))){
                     o  = applyArgs.eval(exp.cdr());
                 }
