@@ -2,7 +2,6 @@ package org.yangrd.lab.lisp.atom;
 
 import lombok.AllArgsConstructor;
 
-import java.util.Arrays;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -14,6 +13,8 @@ public interface Vectors {
     void set(int index, Object v);
 
     int size();
+
+    Object[] data();
 
     static Vectors of(Object[] v){
         return SimpleVectors.of(v);
@@ -41,6 +42,11 @@ public interface Vectors {
         @Override
         public int size() {
             return objects.length;
+        }
+
+        @Override
+        public Object[] data() {
+            return objects;
         }
 
         @Override

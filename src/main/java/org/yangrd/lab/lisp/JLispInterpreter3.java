@@ -10,7 +10,6 @@ import org.yangrd.lab.lisp.support.FileUtils;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.*;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -140,6 +139,8 @@ public class JLispInterpreter3 {
             regVectorsFun();
             regStringsFun();
             regConsFun();
+            regDict();
+            regBaseFun();
             reg("if", applyArgs -> if0(applyArgs, applyArgs.getExp()));
             reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
         }
@@ -356,15 +357,14 @@ public class JLispInterpreter3 {
         private static void regBooleanFun() {
             reg("and", applyArgs -> {
                 Object[] ts = applyArgs.args();
-                return Stream.of(ts).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false;
+                return warp(Stream.of(ts).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false);
             });
-            reg("or", applyArgs -> Stream.of(applyArgs.args()).filter(FunManager::toBoolean).findFirst().orElse(false));
+            reg("or", applyArgs -> warp(Stream.of(applyArgs.args()).filter(FunManager::toBoolean).findFirst().orElse(false)));
             reg("not", applyArgs -> {
                 Object[] ts = applyArgs.args();
                 validateTrue(ts.length == 1, applyArgs.getExp() + "not args only one");
-                return !toBoolean(ts[0]);
+                return warp(!toBoolean(ts[0]));
             });
-
             reg("eqv?", applyArgs -> predicate(applyArgs, Object::equals));
             reg("<", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x < (Integer) y : x.toString().length() < y.toString().length()));
             reg("<=", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x <= (Integer) y : x.toString().length() <= y.toString().length()));
@@ -395,6 +395,7 @@ public class JLispInterpreter3 {
                 return null;
             });
             reg("list", applyArgs -> ConsMarker.markList(applyArgs.args()));
+            reg("mark-list", applyArgs -> ConsMarker.markList());
             reg("list-ref", applyArgs -> {
                 Object[] x = applyArgs.args();
                 return ((Cons) x[0]).list().get((Integer) x[1]);
@@ -404,11 +405,21 @@ public class JLispInterpreter3 {
                 Cons cons = (Cons) x[0];
                 return ConsMarker.markList(cons.list().subList((Integer) x[1], cons.list().size()));
             });
-            reg("null?", applyArgs -> {
-                Object r = applyArgs.eval(applyArgs.getExp());
-                return warp(IS_EXP.test(r) && ((Cons) r).isEmpty());
+            reg("list-add", applyArgs ->{ ((Cons)applyArgs.args()[0]).add(applyArgs.args()[1]);return null;});
+            reg("list-map", applyArgs ->{
+                Cons list = (Cons)applyArgs.args()[0];
+                Function<ApplyArgs,Object> f = ( Function<ApplyArgs,Object>)applyArgs.args()[1];
+                return ConsMarker.markList(list.list().stream().map(o -> applyArgs.apply(f,list,applyArgs.getEnv(), Collections.singletonList(o).toArray())).toArray());
             });
-            reg("pair?", applyArgs -> predicate(applyArgs, ((o, o2) -> o instanceof Cons && ((Cons) o).isCons() && o2 instanceof Cons && ((Cons) o2).isCons())));
+            reg("null?", applyArgs -> allMath(applyArgs,o-> {
+                if(o instanceof Cons){
+                    return ((Cons) o).isEmpty();
+                }else {
+                    return Objects.isNull(o);
+                }
+            }));
+            reg("pair?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isCons()));
+            reg("list?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons&& ((Cons) o).isList()));
             reg("cons->arraylist", applyArgs -> warp(applyArgs.args()[0]));
             reg("length", applyArgs -> {
                 Object o = applyArgs.args()[0];
@@ -418,7 +429,9 @@ public class JLispInterpreter3 {
                     return ((Strings) o).getVal().length();
                 } else if (o instanceof Vectors) {
                     return ((Vectors) o).size();
-                } else {
+                } else if(o instanceof Dict){
+                   return ((Dict)o).size();
+                }else {
                     return 0;
                 }
             });
@@ -426,18 +439,19 @@ public class JLispInterpreter3 {
         }
 
         private static void regSymbolsFun() {
-            reg("symbol?", applyArgs -> warp(applyArgs.eval(applyArgs.getExp()) instanceof Symbols));
+            reg("symbol?", applyArgs -> allMath(applyArgs,o->o instanceof Symbols));
             reg("gensym", applyArgs -> Symbols.of("gen-" + new Random().nextInt(1024)));
             reg("symbol->string", applyArgs -> Strings.of(((Symbols) applyArgs.args()[0]).getVal()));
         }
 
         private static void regNumbersFun() {
-            reg("number?", applyArgs -> predicate(applyArgs, (o, o2) -> o instanceof Number && o2 instanceof Number));
-            reg("integer?", applyArgs -> predicate(applyArgs, (o, o2) -> o instanceof Integer && o2 instanceof Integer));
+            reg("number?", applyArgs -> allMath(applyArgs,o->o instanceof Number));
+            reg("integer?", applyArgs -> allMath(applyArgs,o->o instanceof Integer));
             reg("number->string", applyArgs -> Strings.of(applyArgs.args()[0].toString()));
         }
 
         private static void regVectorsFun() {
+            reg("vector?", applyArgs ->allMath(applyArgs,o->o instanceof Vectors));
             reg("vector", applyArgs -> Vectors.of(applyArgs.argsCons().data().stream().map(o -> applyArgs.eval(o, applyArgs.getExp())).toArray()));
             reg("make-vector", applyArgs -> Vectors.mark((Integer) applyArgs.eval(applyArgs.getExp().car(), applyArgs.getExp())));
             reg("vector-ref", applyArgs -> ((Vectors) applyArgs.args()[0]).ref((Integer) applyArgs.args()[1]));
@@ -445,11 +459,11 @@ public class JLispInterpreter3 {
                 ((Vectors) applyArgs.args()[0]).set((Integer) applyArgs.args()[1], applyArgs.args()[2]);
                 return null;
             });
-            reg("vector?", applyArgs -> applyArgs.args()[0] instanceof Vectors);
+            reg("vector->list",applyArgs -> ConsMarker.markList(((Vectors)applyArgs.getArgs()[0]).data()));
         }
 
         private static void regStringsFun() {
-            reg("symbol?", applyArgs -> warp(applyArgs.eval(applyArgs.getExp()) instanceof Symbols));
+            reg("string?", applyArgs -> allMath(applyArgs,o-> o instanceof Strings ));
             reg("string->list", applyArgs -> ConsMarker.markList(applyArgs.getArgs()[0]));
             reg("string->number", applyArgs -> {
                 try {
@@ -463,12 +477,42 @@ public class JLispInterpreter3 {
             reg("string-append", applyArgs -> warp(Arrays.stream(applyArgs.args()).map(o -> (Strings) o).map(Strings::getVal).collect(Collectors.joining())));
         }
 
+        private static void regDict(){
+            reg("dict?",applyArgs ->allMath(applyArgs,o->o instanceof Dict));
+            reg("dict", applyArgs ->Dict.of((Cons) applyArgs.args()[0],(Cons) applyArgs.args()[1]));
+            reg("make-dict", applyArgs ->Dict.mark());
+            reg("dict-remove!", applyArgs ->((Dict)applyArgs.args()[0]).remove(applyArgs.args()[1]));
+            reg("dict-get", applyArgs ->((Dict)applyArgs.args()[0]).get(applyArgs.args()[1]));
+            reg("dict-put!", applyArgs ->((Dict)applyArgs.args()[0]).put(applyArgs.args()[1],applyArgs.args()[2]));
+            reg("dict-contains?", applyArgs ->warp(((Dict)applyArgs.args()[0]).containsKey(applyArgs.args()[1])));
+            reg("dict-keys->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).keySet().toArray()));
+            reg("dict-values->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).values().toArray()));
+            reg("dict-items->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).entrySet().stream().map(e->ConsMarker.markCons(e.getKey(),e.getValue())).toArray()));
+        }
+
+        private static void regBaseFun(){
+            reg("while", applyArgs -> {
+                Cons exp = applyArgs.getExp();
+                Object o = ConsMarker.getEmpty();
+                while (toBoolean(applyArgs.eval(exp.car(),exp))){
+                    o  = applyArgs.eval(exp.cdr());
+                }
+                return o;
+            });
+        }
+
+        private static Object allMath(ApplyArgs applyArgs, Predicate<Object> predicates) {
+            Object[] objs = applyArgs.args();
+            validateTrue(objs.length > 1, applyArgs.getExp() + " args qty > 1 ");
+            return warp(Arrays.stream(objs).allMatch(predicates));
+        }
+
         private static Object predicate(ApplyArgs applyArgs, BiPredicate<Object, Object> predicates) {
             Object[] objs = applyArgs.args();
             validateTrue(objs.length > 1, applyArgs.getExp() + " args qty > 1 ");
-            Object o = applyArgs.eval(objs[0], applyArgs.getExp(), applyArgs.getEnv());
+            Object o = objs[0];
             for (int i = 1; i < objs.length; i++) {
-                Object o1 = applyArgs.eval(objs[i], applyArgs.getExp(), applyArgs.getEnv());
+                Object o1 = objs[i];
                 boolean b = predicates.test(o, o1);
                 if (!b) {
                     return warp(false);

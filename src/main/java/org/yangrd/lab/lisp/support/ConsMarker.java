@@ -9,6 +9,12 @@ import java.util.Collections;
 
 public final class ConsMarker {
 
+    private static final Cons EMPTY = markList();
+
+    public static Cons getEmpty(){
+        return EMPTY;
+    }
+
     public static Cons markExp(Cons parent, Object... data) {
         return Cons.of(new ArrayList<>(Arrays.asList(data)), parent, Cons.ConsType.EXP);
     }
