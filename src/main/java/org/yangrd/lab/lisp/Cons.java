@@ -1,7 +1,7 @@
 package org.yangrd.lab.lisp;
 
 import lombok.AllArgsConstructor;
-import org.yangrd.lab.lisp.atom.Symbols;
+import org.yangrd.lab.lisp.type.Symbols;
 
 import java.util.*;
 

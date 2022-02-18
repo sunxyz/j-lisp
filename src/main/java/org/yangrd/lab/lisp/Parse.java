@@ -1,9 +1,9 @@
 package org.yangrd.lab.lisp;
 
 import lombok.extern.slf4j.Slf4j;
-import org.yangrd.lab.lisp.atom.Booleans;
-import org.yangrd.lab.lisp.atom.Strings;
-import org.yangrd.lab.lisp.atom.Symbols;
+import org.yangrd.lab.lisp.type.Booleans;
+import org.yangrd.lab.lisp.type.Strings;
+import org.yangrd.lab.lisp.type.Symbols;
 import org.yangrd.lab.lisp.support.ConsMarker;
 
 import java.util.Arrays;

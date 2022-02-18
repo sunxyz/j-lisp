@@ -1,4 +1,4 @@
-package org.yangrd.lab.lisp.atom;
+package org.yangrd.lab.lisp.type;
 
 public interface Atom<T> {
 

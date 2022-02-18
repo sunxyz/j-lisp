@@ -1,7 +1,7 @@
 package org.yangrd.lab.lisp;
 
 
-import org.yangrd.lab.lisp.atom.Symbols;
+import org.yangrd.lab.lisp.type.Symbols;
 
 import java.util.HashMap;
 import java.util.Map;

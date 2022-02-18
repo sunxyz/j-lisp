@@ -1,4 +1,4 @@
-package org.yangrd.lab.lisp.atom;
+package org.yangrd.lab.lisp.type;
 
 public interface Nil extends Atom<String> {
      Nil NIL = new Nil() {

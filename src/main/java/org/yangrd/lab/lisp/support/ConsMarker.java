@@ -1,7 +1,7 @@
 package org.yangrd.lab.lisp.support;
 
 import org.yangrd.lab.lisp.Cons;
-import org.yangrd.lab.lisp.atom.Symbols;
+import org.yangrd.lab.lisp.type.Symbols;
 
 import java.util.ArrayList;
 import java.util.Arrays;
