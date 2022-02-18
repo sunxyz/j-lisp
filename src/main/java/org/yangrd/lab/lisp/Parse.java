@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -68,7 +69,7 @@ public class Parse {
     }
 
     private static Object parseObj(String atom) {
-        if (atom.chars().allMatch(Character::isDigit)) {
+        if (Pattern.compile("-?\\d+").matcher(atom).matches()) {
             return Integer.valueOf(atom);
         } else if (atom.equals("#t") || atom.equals("#f")) {
             return Booleans.of(atom.equals("#t"));

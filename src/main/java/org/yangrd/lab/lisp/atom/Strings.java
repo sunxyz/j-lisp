@@ -1,5 +1,6 @@
 package org.yangrd.lab.lisp.atom;
 
+import lombok.EqualsAndHashCode;
 import lombok.Value;
 
 public interface Strings{
@@ -11,11 +12,14 @@ public interface Strings{
     }
 
     @Value
+    @EqualsAndHashCode
     class SimpleStr implements Strings {
         String val;
         @Override
         public String toString() {
             return "'" + val+"'";
         }
+
+
     }
 }

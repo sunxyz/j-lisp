@@ -408,9 +408,14 @@ public class JLispInterpreter3 {
             });
             reg("list-add", applyArgs ->{ ((Cons)applyArgs.args()[0]).add(applyArgs.args()[1]);return Nil.NIL;});
             reg("list-map", applyArgs ->{
-                Cons list = (Cons)applyArgs.args()[0];
+                Cons arg = (Cons) applyArgs.args()[0];
+                List<Object> list = arg.list();
                 Function<ApplyArgs,Object> f = ( Function<ApplyArgs,Object>)applyArgs.args()[1];
-                return ConsMarker.markList(list.list().stream().map(o -> applyArgs.apply(f,list,applyArgs.getEnv(), Collections.singletonList(o).toArray())).toArray());
+                List<Object> r = new ArrayList<>();
+                for (int i = 0; i < list.size(); i++) {
+                    r.add(applyArgs.apply(f, arg, applyArgs.getEnv(), Arrays.asList(list.get(i),i,arg).toArray()));
+                }
+                return ConsMarker.markList(r.toArray());
             });
             reg("null?", applyArgs -> allMath(applyArgs,o-> {
                 if(o instanceof Cons){
@@ -420,7 +425,7 @@ public class JLispInterpreter3 {
                 }
             }));
             reg("pair?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isCons()));
-            reg("list?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons&& ((Cons) o).isList()));
+            reg("list?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isList()));
             reg("cons->arraylist", applyArgs -> warp(applyArgs.args()[0]));
             reg("length", applyArgs -> {
                 Object o = applyArgs.args()[0];
@@ -500,11 +505,14 @@ public class JLispInterpreter3 {
                 }
                 return o;
             });
+            reg("error", applyArgs -> {
+                throw new IllegalArgumentException(applyArgs.args()[0].toString());
+            });
         }
 
         private static Object allMath(ApplyArgs applyArgs, Predicate<Object> predicates) {
             Object[] objs = applyArgs.args();
-            validateTrue(objs.length > 1, applyArgs.getExp() + " args qty > 1 ");
+            validateTrue(objs.length > 0, applyArgs.getExp() + " args qty > 0 ");
             return warp(Arrays.stream(objs).allMatch(predicates));
         }
 

@@ -23,5 +23,9 @@ public interface Dict extends Map<Object,Object>  {
 
     class SimpleDict extends HashMap<Object,Object> implements Dict {
 
+        @Override
+        public String toString() {
+            return entrySet().stream().map(o->"("+o.getKey()+ " "+o.getValue()+")").reduce((x, y) -> x + " " + y).map(o -> "(" + o + ")").orElse("()");
+        }
     }
 }
