@@ -12,10 +12,14 @@ public class FileUtils {
         file = file.indexOf("/")==0?file:System.getProperty("user.dir")+"/"+file;
         try ( FileReader f = new FileReader(file);BufferedReader reader = new BufferedReader(f)) {
             String line = reader.readLine();
+
             while (line != null) { // 如果 line 为空说明读完了
+                line = line.trim();
+                line = line.indexOf("//")==0||line.indexOf(";")==0?"":line;
                 buffer.append(line); // 将读到的内容添加到 buffer 中
                 buffer.append("\n"); // 添加换行符
                 line = reader.readLine(); // 读取下一行
+
             }
         } catch (IOException e) {
             e.printStackTrace();

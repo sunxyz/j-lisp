@@ -278,12 +278,9 @@ public class JLispInterpreter3 {
             Cons cdr = applyArgs.getExp();
             Object val = applyArgs.eval(cdr.cdr());
             Env env = applyArgs.getEnv();
-            while (Objects.nonNull(env.parent()) && Objects.nonNull(env.parent().parent())) {
-                env = env.parent();
-            }
             Symbols symbols = cdr.carSymbols();
             validateTrue(env.noContains(symbols), "Do not repeat the definition " + symbols);
-            env.setEnv(symbols, val);
+            applyArgs.getEnv().setEnv(symbols, val);
             return Nil.NIL;
         }
 
@@ -407,6 +404,7 @@ public class JLispInterpreter3 {
                 return ConsMarker.markList(cons.list().subList((Integer) x[1], cons.list().size()));
             });
             reg("list-add", applyArgs ->{ ((Cons)applyArgs.args()[0]).add(applyArgs.args()[1]);return Nil.NIL;});
+            reg("list-add-all", applyArgs ->{ ((Cons)(applyArgs.args()[1])).forEach(o->((Cons)applyArgs.args()[0]).add(o));return Nil.NIL;});
             reg("list-map", applyArgs ->{
                 Cons arg = (Cons) applyArgs.args()[0];
                 List<Object> list = arg.list();
@@ -426,7 +424,9 @@ public class JLispInterpreter3 {
             }));
             reg("pair?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isCons()));
             reg("list?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isList()));
+            reg("exp?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons));
             reg("cons->arraylist", applyArgs -> warp(applyArgs.args()[0]));
+            reg("list->vector", applyArgs -> Vectors.of(((Cons)applyArgs.args()[0]).data().toArray()));
             reg("length", applyArgs -> {
                 Object o = applyArgs.args()[0];
                 if (IS_EXP.test(o)) {
@@ -489,7 +489,8 @@ public class JLispInterpreter3 {
             reg("make-dict", applyArgs ->Dict.mark());
             reg("dict-remove!", applyArgs ->((Dict)applyArgs.args()[0]).remove(applyArgs.args()[1]));
             reg("dict-get", applyArgs ->((Dict)applyArgs.args()[0]).get(applyArgs.args()[1]));
-            reg("dict-put!", applyArgs ->((Dict)applyArgs.args()[0]).put(applyArgs.args()[1],applyArgs.args()[2]));
+            reg("dict-put!", applyArgs ->{
+                ((Dict)applyArgs.args()[0]).put(applyArgs.args()[1],applyArgs.args()[2]);return Nil.NIL;});
             reg("dict-contains?", applyArgs ->warp(((Dict)applyArgs.args()[0]).containsKey(applyArgs.args()[1])));
             reg("dict-keys->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).keySet().toArray()));
             reg("dict-values->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).values().toArray()));
@@ -508,6 +509,7 @@ public class JLispInterpreter3 {
             reg("error", applyArgs -> {
                 throw new IllegalArgumentException(applyArgs.args()[0].toString());
             });
+            reg("method?", applyArgs -> allMath(applyArgs,o->o instanceof Function));
         }
 
         private static Object allMath(ApplyArgs applyArgs, Predicate<Object> predicates) {
