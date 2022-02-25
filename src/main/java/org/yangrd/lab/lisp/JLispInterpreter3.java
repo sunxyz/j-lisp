@@ -59,8 +59,8 @@ public class JLispInterpreter3 {
         }
     }
 
-    private static Object eval(Object o, Cons exp, Env env) {
-        return IS_EXP.test(o) ? eval((Cons) o, env) : (IS_SYMBOLS.test(o) ? eval(ConsMarker.markSubExp(exp, o), env) : o);
+    private static Object eval(Object o, Cons parentExp, Env env) {
+        return IS_EXP.test(o) ? eval((Cons) o, env) : (IS_SYMBOLS.test(o) ? eval(ConsMarker.markSubExp(parentExp, o), env) : o);
     }
 
     private static Object apply(Object v, Cons cdr, Env env, Object... args) {
