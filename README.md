@@ -197,24 +197,33 @@ public class JLispInterpreter3 {
         return CAN_APPLY.test(exp, v) ? apply(v, exp.cdr(), env) : (exp.cdr().isEmpty() ? v : eval(exp.cdr(), env));
     }
 
-    private static Object apply(Object v, Cons cdr, Env env) {
-        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> cdr.data().stream().map(o -> getAtom(o, cdr, env)).toArray(), JLispInterpreter3::eval));
+    private static Object eval(Object o, Cons exp, Env env) {
+        return IS_EXP.test(o) ? eval((Cons) o, env) : (IS_SYMBOLS.test(o) ? eval(ConsMarker.markSubExp(exp, o), env) : o);
     }
 
-    private static Object getAtom(Object o, Cons exp, Env env) {
-        return IS_EXP.test(o) ? eval((Cons) o, env) : (IS_SYMBOLS.test(o) ? eval(toSubCons(o, exp), env) : o);
+    private static Object apply(Object v, Cons cdr, Env env, Object... args) {
+        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> cdr.data().stream().map(o -> eval(o, cdr, env)).toArray(), args.length > 0 ? args : null));
     }
 
-    private static Cons markSubExp(Cons parent, Object obj) {
-        return Cons.of(Collections.singletonList(obj), parent, Cons.ConsType.SUB_EXP);
-    }
-    
-    @Value(staticConstructor = "of")
-    public static class ApplyArgs {
-        Cons exp;
-        Env env;
-        Supplier<Object[]> lazyArgs;
-        BiFunction<Cons, Env, Object> eval;
+    @AllArgsConstructor(staticName = "of")
+    @Getter
+    public static class ApplyArgs extends EvalAndApplyProxy {
+        final Cons exp;
+        final Env env;
+        final Supplier<Object[]> lazyArgs;
+        @Setter
+        Object[] args;
+
+        public Object[] args() {
+            if (Objects.isNull(args)) {
+                args = lazyArgs.get();
+            }
+            return args;
+        }
+
+        public Cons argsCons() {
+            return ConsMarker.markList(args());
+        }
     }
 }
 ```
