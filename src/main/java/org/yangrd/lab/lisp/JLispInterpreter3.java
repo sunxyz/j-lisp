@@ -1,11 +1,12 @@
 package org.yangrd.lab.lisp;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.yangrd.lab.lisp.type.*;
 import org.yangrd.lab.lisp.support.ConsMarker;
 import org.yangrd.lab.lisp.support.FileUtils;
+import org.yangrd.lab.lisp.type.*;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -63,16 +64,17 @@ public class JLispInterpreter3 {
     }
 
     private static Object apply(Object v, Cons cdr, Env env, Object... args) {
-        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> args.length > 0 ? args : cdr.data().stream().map(o -> eval(o, cdr, env)).toArray()));
+        return ((Function<ApplyArgs, Object>) v).apply(ApplyArgs.of(cdr, env, () -> cdr.data().stream().map(o -> eval(o, cdr, env)).toArray(), args.length > 0 ? args : null));
     }
 
-    @RequiredArgsConstructor(staticName = "of")
+    @AllArgsConstructor(staticName = "of")
     @Getter
     public static class ApplyArgs extends EvalAndApplyProxy {
         final Cons exp;
         final Env env;
         final Supplier<Object[]> lazyArgs;
-        private Object[] args;
+        @Setter
+        Object[] args;
 
         public Object[] args() {
             if (Objects.isNull(args)) {
@@ -107,16 +109,13 @@ public class JLispInterpreter3 {
         }
     }
 
-    static class FunManager {
+    public static class FunManager {
         private static final Map<String, Function<ApplyArgs, Object>> FUNCTIONAL = new ConcurrentHashMap<>();
 
         static {
-            reg("+", applyArgs -> toIntStream(applyArgs.args()).reduce(Integer::sum).orElse(null));
-            reg("-", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a - b).orElse(null));
-            reg("*", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a * b).orElse(null));
-            reg("/", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a / b).orElse(null));
             reg("load", FunManager::load);
-            reg("lambda", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv()));
+            reg("lambda", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv(), false));
+            reg("lambda-lep", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv(), true));
             reg("quote", applyArgs -> quote(applyArgs.getExp(), applyArgs));
             reg("display", applyArgs -> {
                 Object val = applyArgs.eval(applyArgs.getExp());
@@ -146,22 +145,22 @@ public class JLispInterpreter3 {
             reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
         }
 
-        private static void reg(String optKey, Function<ApplyArgs, Object> opt) {
+        public static void reg(String optKey, Function<ApplyArgs, Object> opt) {
             FUNCTIONAL.put(optKey, opt);
         }
 
-        private static Function<ApplyArgs, Object> lambda(Cons cdr, Env env) {
+        private static Function<ApplyArgs, Object> lambda(Cons cdr, Env env, boolean isLazyEvaluation) {
             return new Function<ApplyArgs, Object>() {
                 @Override
                 public Object apply(ApplyArgs applyArgs) {
                     Cons body = cdr.cdr();
-                    Env env0 = Env.newInstance(env);
+                    Env env0 = Env.newInstance(isLazyEvaluation ? applyArgs.getEnv() : env);
                     bindEnv(applyArgs, env0);
                     return applyArgs.eval(body, env0);
                 }
 
                 private void bindEnv(ApplyArgs applyArgs, Env env) {
-                    Cons val = applyArgs.argsCons();
+                    Cons val = isLazyEvaluation ? applyArgs.getExp() : applyArgs.argsCons();
                     // 看是否有可变参数
                     List<Object> args0 = cdr.carCons().list();
                     int argsSize = args0.size();
@@ -403,30 +402,40 @@ public class JLispInterpreter3 {
                 Cons cons = (Cons) x[0];
                 return ConsMarker.markList(cons.list().subList((Integer) x[1], cons.list().size()));
             });
-            reg("list-add", applyArgs ->{ ((Cons)applyArgs.args()[0]).add(applyArgs.args()[1]);return Nil.NIL;});
-            reg("list-add-all", applyArgs ->{ ((Cons)(applyArgs.args()[1])).forEach(o->((Cons)applyArgs.args()[0]).add(o));return Nil.NIL;});
-            reg("list-map", applyArgs ->{
+            reg("list-set!", applyArgs -> {
+                ((Cons) applyArgs.args()[0]).list().set((int) applyArgs.args()[1], applyArgs.args()[2]);
+                return Nil.NIL;
+            });
+            reg("list-add", applyArgs -> {
+                ((Cons) applyArgs.args()[0]).add(applyArgs.args()[1]);
+                return Nil.NIL;
+            });
+            reg("list-add-all", applyArgs -> {
+                ((Cons) (applyArgs.args()[1])).forEach(o -> ((Cons) applyArgs.args()[0]).add(o));
+                return Nil.NIL;
+            });
+            reg("list-map", applyArgs -> {
                 Cons arg = (Cons) applyArgs.args()[0];
                 List<Object> list = arg.list();
-                Function<ApplyArgs,Object> f = ( Function<ApplyArgs,Object>)applyArgs.args()[1];
+                Function<ApplyArgs, Object> f = (Function<ApplyArgs, Object>) applyArgs.args()[1];
                 List<Object> r = new ArrayList<>();
                 for (int i = 0; i < list.size(); i++) {
-                    r.add(applyArgs.apply(f, arg, applyArgs.getEnv(), Arrays.asList(list.get(i),i,arg).toArray()));
+                    r.add(applyArgs.apply(f, arg, applyArgs.getEnv(), Arrays.asList(list.get(i), i, arg).toArray()));
                 }
                 return ConsMarker.markList(r.toArray());
             });
-            reg("null?", applyArgs -> allMath(applyArgs,o-> {
-                if(o instanceof Cons){
+            reg("null?", applyArgs -> allMath(applyArgs, o -> {
+                if (o instanceof Cons) {
                     return ((Cons) o).isEmpty();
-                }else {
+                } else {
                     return o instanceof Nil || Objects.isNull(o);
                 }
             }));
-            reg("pair?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isCons()));
-            reg("list?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons && ((Cons) o).isList()));
-            reg("exp?", applyArgs -> allMath(applyArgs,o -> o instanceof Cons));
+            reg("pair?", applyArgs -> allMath(applyArgs, o -> o instanceof Cons && ((Cons) o).isCons()));
+            reg("list?", applyArgs -> allMath(applyArgs, o -> o instanceof Cons && ((Cons) o).isList()));
+            reg("exp?", applyArgs -> allMath(applyArgs, o -> o instanceof Cons));
             reg("cons->arraylist", applyArgs -> warp(applyArgs.args()[0]));
-            reg("list->vector", applyArgs -> Vectors.of(((Cons)applyArgs.args()[0]).data().toArray()));
+            reg("list->vector", applyArgs -> Vectors.of(((Cons) applyArgs.args()[0]).data().toArray()));
             reg("length", applyArgs -> {
                 Object o = applyArgs.args()[0];
                 if (IS_EXP.test(o)) {
@@ -435,9 +444,9 @@ public class JLispInterpreter3 {
                     return ((Strings) o).getVal().length();
                 } else if (o instanceof Vectors) {
                     return ((Vectors) o).size();
-                } else if(o instanceof Dict){
-                   return ((Dict)o).size();
-                }else {
+                } else if (o instanceof Dict) {
+                    return ((Dict) o).size();
+                } else {
                     return 0;
                 }
             });
@@ -445,31 +454,36 @@ public class JLispInterpreter3 {
         }
 
         private static void regSymbolsFun() {
-            reg("symbol?", applyArgs -> allMath(applyArgs,o->o instanceof Symbols));
+            reg("symbol?", applyArgs -> allMath(applyArgs, o -> o instanceof Symbols));
             reg("gensym", applyArgs -> Symbols.of("gen-" + new Random().nextInt(1024)));
             reg("symbol->string", applyArgs -> Strings.of(((Symbols) applyArgs.args()[0]).getVal()));
         }
 
         private static void regNumbersFun() {
-            reg("number?", applyArgs -> allMath(applyArgs,o->o instanceof Number));
-            reg("integer?", applyArgs -> allMath(applyArgs,o->o instanceof Integer));
+            reg("number?", applyArgs -> allMath(applyArgs, o -> o instanceof Number));
+            reg("integer?", applyArgs -> allMath(applyArgs, o -> o instanceof Integer));
             reg("number->string", applyArgs -> Strings.of(applyArgs.args()[0].toString()));
+            reg("sqrt", applyArgs -> Math.round(Math.sqrt(((Integer) (applyArgs.args()[0])).floatValue())));
+            reg("+", applyArgs -> toIntStream(applyArgs.args()).reduce(Integer::sum).orElse(null));
+            reg("-", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a - b).orElse(null));
+            reg("*", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a * b).orElse(null));
+            reg("/", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a / b).orElse(null));
         }
 
         private static void regVectorsFun() {
-            reg("vector?", applyArgs ->allMath(applyArgs,o->o instanceof Vectors));
-            reg("vector", applyArgs -> Vectors.of(applyArgs.argsCons().data().stream().map(o -> applyArgs.eval(o, applyArgs.getExp())).toArray()));
+            reg("vector?", applyArgs -> allMath(applyArgs, o -> o instanceof Vectors));
+            reg("vector", applyArgs -> Vectors.of(applyArgs.args()));
             reg("make-vector", applyArgs -> Vectors.mark((Integer) applyArgs.eval(applyArgs.getExp().car(), applyArgs.getExp())));
             reg("vector-ref", applyArgs -> ((Vectors) applyArgs.args()[0]).ref((Integer) applyArgs.args()[1]));
             reg("vector-set!", applyArgs -> {
                 ((Vectors) applyArgs.args()[0]).set((Integer) applyArgs.args()[1], applyArgs.args()[2]);
                 return Nil.NIL;
             });
-            reg("vector->list",applyArgs -> ConsMarker.markList(((Vectors)applyArgs.getArgs()[0]).data()));
+            reg("vector->list", applyArgs -> ConsMarker.markList(((Vectors) applyArgs.getArgs()[0]).data()));
         }
 
         private static void regStringsFun() {
-            reg("string?", applyArgs -> allMath(applyArgs,o-> o instanceof Strings ));
+            reg("string?", applyArgs -> allMath(applyArgs, o -> o instanceof Strings));
             reg("string->list", applyArgs -> ConsMarker.markList(applyArgs.getArgs()[0]));
             reg("string->number", applyArgs -> {
                 try {
@@ -483,33 +497,35 @@ public class JLispInterpreter3 {
             reg("string-append", applyArgs -> warp(Arrays.stream(applyArgs.args()).map(o -> (Strings) o).map(Strings::getVal).collect(Collectors.joining())));
         }
 
-        private static void regDict(){
-            reg("dict?",applyArgs ->allMath(applyArgs,o->o instanceof Dict));
-            reg("dict", applyArgs ->Dict.of((Cons) applyArgs.args()[0],(Cons) applyArgs.args()[1]));
-            reg("make-dict", applyArgs ->Dict.mark());
-            reg("dict-remove!", applyArgs ->((Dict)applyArgs.args()[0]).remove(applyArgs.args()[1]));
-            reg("dict-get", applyArgs ->((Dict)applyArgs.args()[0]).get(applyArgs.args()[1]));
-            reg("dict-put!", applyArgs ->{
-                ((Dict)applyArgs.args()[0]).put(applyArgs.args()[1],applyArgs.args()[2]);return Nil.NIL;});
-            reg("dict-contains?", applyArgs ->warp(((Dict)applyArgs.args()[0]).containsKey(applyArgs.args()[1])));
-            reg("dict-keys->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).keySet().toArray()));
-            reg("dict-values->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).values().toArray()));
-            reg("dict-items->list", applyArgs -> ConsMarker.markList (((Dict)applyArgs.args()[0]).entrySet().stream().map(e->ConsMarker.markCons(e.getKey(),e.getValue())).toArray()));
+        private static void regDict() {
+            reg("dict?", applyArgs -> allMath(applyArgs, o -> o instanceof Dict));
+            reg("dict", applyArgs -> Dict.of((Cons) applyArgs.args()[0], (Cons) applyArgs.args()[1]));
+            reg("make-dict", applyArgs -> Dict.mark());
+            reg("dict-remove!", applyArgs -> ((Dict) applyArgs.args()[0]).remove(applyArgs.args()[1]));
+            reg("dict-get", applyArgs -> ((Dict) applyArgs.args()[0]).get(applyArgs.args()[1]));
+            reg("dict-put!", applyArgs -> {
+                ((Dict) applyArgs.args()[0]).put(applyArgs.args()[1], applyArgs.args()[2]);
+                return Nil.NIL;
+            });
+            reg("dict-contains?", applyArgs -> warp(((Dict) applyArgs.args()[0]).containsKey(applyArgs.args()[1])));
+            reg("dict-keys->list", applyArgs -> ConsMarker.markList(((Dict) applyArgs.args()[0]).keySet().toArray()));
+            reg("dict-values->list", applyArgs -> ConsMarker.markList(((Dict) applyArgs.args()[0]).values().toArray()));
+            reg("dict-items->list", applyArgs -> ConsMarker.markList(((Dict) applyArgs.args()[0]).entrySet().stream().map(e -> ConsMarker.markCons(e.getKey(), e.getValue())).toArray()));
         }
 
-        private static void regBaseFun(){
+        private static void regBaseFun() {
             reg("while", applyArgs -> {
                 Cons exp = applyArgs.getExp();
                 Object o = Nil.NIL;
-                while (toBoolean(applyArgs.eval(exp.car(),exp))){
-                    o  = applyArgs.eval(exp.cdr());
+                while (toBoolean(applyArgs.eval(exp.car(), exp))) {
+                    o = applyArgs.eval(exp.cdr());
                 }
                 return o;
             });
             reg("error", applyArgs -> {
                 throw new IllegalArgumentException(applyArgs.args()[0].toString());
             });
-            reg("method?", applyArgs -> allMath(applyArgs,o->o instanceof Function));
+            reg("method?", applyArgs -> allMath(applyArgs, o -> o instanceof Function));
         }
 
         private static Object allMath(ApplyArgs applyArgs, Predicate<Object> predicates) {

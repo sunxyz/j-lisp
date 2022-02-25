@@ -22,6 +22,8 @@
 - [x] cons list car cdr ...
 - [x] symbol? eqv? gensym
 
+**dialect**
+- [x] lambda-lep => lambda-lazy-eval-params
 ## use
 **simple**
 ```java
@@ -126,7 +128,6 @@ System.out.println(eval("(load 'alias.lisp' 'test.lisp')"));
 ```
 => 3
 ```
-
 ```
 (apply 
     (
@@ -139,7 +140,7 @@ System.out.println(eval("(load 'alias.lisp' 'test.lisp')"));
 ```
 => 3
 ```
--when4.lisp
+- when4.lisp
 ```
 (apply
     (lambda (test . branch)
@@ -149,6 +150,20 @@ System.out.println(eval("(load 'alias.lisp' 'test.lisp')"));
 ```
 ```
 => (if #t (begin (+ 1 2)))
+```
+**dialect** 
+- when5: lambda-lep
+```
+(
+    (define when5
+      (lambda-lep (test . branch)
+        (apply (` (IF , test
+             (BEGIN , branch))))))
+)
+```
+```
+(when5 (< 1 2) (display 1))
+=> 1
 ```
 ## core-code
 
