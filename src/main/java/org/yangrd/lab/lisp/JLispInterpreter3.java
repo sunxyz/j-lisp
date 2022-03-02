@@ -229,7 +229,7 @@ public class JLispInterpreter3 {
         }
 
         private static Object load(ApplyArgs applyArgs) {
-            Cons args = applyArgs.getExp();
+            Object[] args = applyArgs.args();
             Object o = Nil.NIL;
             for (Object d : args) {
                 validateTrue(d instanceof Strings, d + " type error");
@@ -290,7 +290,7 @@ public class JLispInterpreter3 {
             Function<ApplyArgs, Object> applyFun = (applyArgs1) -> {
                 Cons cons = ConsMarker.markList(Symbols.of("apply"), cdr.cdr().car(), ConsMarker.markQuote(applyArgs1.getExp().list().toArray()));
                 Object apply = applyArgs1.eval(cons);
-//                log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
+                log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
                 return applyArgs1.eval(apply, applyArgs1.getExp(), applyArgs1.getEnv());
             };
             applyArgs.getEnv().setEnv(cdr.carSymbols(), applyFun);
@@ -516,7 +516,10 @@ public class JLispInterpreter3 {
 
         private static void regDict() {
             reg("dict?", applyArgs -> allMath(applyArgs, o -> o instanceof Dict));
-            reg("dict", applyArgs -> Dict.of((Cons) applyArgs.args()[0], (Cons) applyArgs.args()[1]));
+            reg("dict", applyArgs -> {
+                Object[] args = applyArgs.args();
+                return Dict.of((Cons) args[0], (Cons) args[1]);
+            });
             reg("make-dict", applyArgs -> Dict.mark());
             reg("dict-remove!", applyArgs -> ((Dict) applyArgs.args()[0]).remove(applyArgs.args()[1]));
             reg("dict-get", applyArgs -> ((Dict) applyArgs.args()[0]).get(applyArgs.args()[1]));
