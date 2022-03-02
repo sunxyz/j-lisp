@@ -173,6 +173,7 @@ public class JLispInterpreter3 {
 
                 private void loopBind(Env env, Cons args, Cons val) {
                     if (!args.isEmpty()) {
+//                        System.out.println(args);
                         if (args.carSymbols().equals(Symbols.of("."))) {
                             loopBind(env, args.cdr(), val.data().size() == 1 && IS_EXP.test(val.car()) ? val : ConsMarker.markList(val));
                         } else {
@@ -289,7 +290,7 @@ public class JLispInterpreter3 {
             Function<ApplyArgs, Object> applyFun = (applyArgs1) -> {
                 Cons cons = ConsMarker.markList(Symbols.of("apply"), cdr.cdr().car(), ConsMarker.markQuote(applyArgs1.getExp().list().toArray()));
                 Object apply = applyArgs1.eval(cons);
-                log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
+//                log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
                 return applyArgs1.eval(apply, applyArgs1.getExp(), applyArgs1.getEnv());
             };
             applyArgs.getEnv().setEnv(cdr.carSymbols(), applyFun);
@@ -353,10 +354,25 @@ public class JLispInterpreter3 {
 
         private static void regBooleanFun() {
             reg("and", applyArgs -> {
-                Object[] ts = applyArgs.args();
-                return warp(Stream.of(ts).allMatch(FunManager::toBoolean) ? ts[ts.length - 1] : false);
+                List<Object> list = applyArgs.getExp().list();
+                List<Object> holder = new ArrayList<>();
+                holder.add(null);
+                return warp(list.stream().map(o -> {
+                   Object t = applyArgs.eval(o, applyArgs.getExp());
+                    holder.set(0,t);
+                   return t;
+                }).allMatch(FunManager::toBoolean) ? holder.iterator().next() : false);
             });
-            reg("or", applyArgs -> warp(Stream.of(applyArgs.args()).filter(FunManager::toBoolean).findFirst().orElse(false)));
+            reg("or", applyArgs ->{
+                List<Object> list = applyArgs.getExp().list();
+                List<Object> holder = new ArrayList<>();
+                holder.add(null);
+                return warp(list.stream().map(o -> {
+                    Object t = applyArgs.eval(o, applyArgs.getExp());
+                    holder.set(0,t);
+                    return t;
+                }).anyMatch(FunManager::toBoolean) ? holder.iterator().next() : false);
+            });
             reg("not", applyArgs -> {
                 Object[] ts = applyArgs.args();
                 validateTrue(ts.length == 1, applyArgs.getExp() + "not args only one");
@@ -392,7 +408,7 @@ public class JLispInterpreter3 {
                 return null;
             });
             reg("list", applyArgs -> ConsMarker.markList(applyArgs.args()));
-            reg("mark-list", applyArgs -> ConsMarker.markList());
+            reg("mark-list", applyArgs -> ConsMarker.markList(new Object[(int)applyArgs.args()[0]]));
             reg("list-ref", applyArgs -> {
                 Object[] x = applyArgs.args();
                 return ((Cons) x[0]).list().get((Integer) x[1]);
@@ -468,6 +484,7 @@ public class JLispInterpreter3 {
             reg("-", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a - b).orElse(null));
             reg("*", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a * b).orElse(null));
             reg("/", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a / b).orElse(null));
+            reg("%", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a % b).orElse(null));
         }
 
         private static void regVectorsFun() {
