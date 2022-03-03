@@ -68,10 +68,13 @@ public class JLispInterpreter3 {
     }
 
     @AllArgsConstructor(staticName = "of")
-    @Getter
+
     public static class ApplyArgs extends EvalAndApplyProxy {
+        @Getter
         final Cons exp;
+        @Getter
         final Env env;
+        @Getter
         final Supplier<Object[]> lazyArgs;
         @Setter
         Object[] args;
@@ -409,6 +412,7 @@ public class JLispInterpreter3 {
             });
             reg("list", applyArgs -> ConsMarker.markList(applyArgs.args()));
             reg("mark-list", applyArgs -> ConsMarker.markList(new Object[(int)applyArgs.args()[0]]));
+            reg("mark-boolean-list", applyArgs -> ConsMarker.markList(new Booleans[(int)applyArgs.args()[0]]));
             reg("list-ref", applyArgs -> {
                 Object[] x = applyArgs.args();
                 return ((Cons) x[0]).list().get((Integer) x[1]);
@@ -439,6 +443,20 @@ public class JLispInterpreter3 {
                     r.add(applyArgs.apply(f, arg, applyArgs.getEnv(), Arrays.asList(list.get(i), i, arg).toArray()));
                 }
                 return ConsMarker.markList(r.toArray());
+            });
+            reg("list-foreach", applyArgs -> {
+                Cons arg = (Cons) applyArgs.args()[0];
+                List<Object> list = arg.list();
+                Function<ApplyArgs, Object> f = (Function<ApplyArgs, Object>) applyArgs.args()[1];
+                for (int i = 0; i < list.size(); i++) {
+                    applyArgs.apply(f, arg, applyArgs.getEnv(), Arrays.asList(list.get(i), i, arg).toArray());
+                }
+                return Nil.NIL;
+            });
+            reg("list-sub", applyArgs -> {
+                Cons arg = (Cons) applyArgs.args()[0];
+                List<Object> list = arg.list();
+                return ConsMarker.markList(list.subList((int) applyArgs.args()[1], (int) applyArgs.args()[2]));
             });
             reg("null?", applyArgs -> allMath(applyArgs, o -> {
                 if (o instanceof Cons) {
@@ -496,12 +514,12 @@ public class JLispInterpreter3 {
                 ((Vectors) applyArgs.args()[0]).set((Integer) applyArgs.args()[1], applyArgs.args()[2]);
                 return Nil.NIL;
             });
-            reg("vector->list", applyArgs -> ConsMarker.markList(((Vectors) applyArgs.getArgs()[0]).data()));
+            reg("vector->list", applyArgs -> ConsMarker.markList(((Vectors) applyArgs.args()[0]).data()));
         }
 
         private static void regStringsFun() {
             reg("string?", applyArgs -> allMath(applyArgs, o -> o instanceof Strings));
-            reg("string->list", applyArgs -> ConsMarker.markList(applyArgs.getArgs()[0]));
+            reg("string->list", applyArgs -> ConsMarker.markList(((Strings) applyArgs.args()[0]).toCharArray()));
             reg("string->number", applyArgs -> {
                 try {
                     return Integer.valueOf(((Strings) applyArgs.args()[0]).getVal());
@@ -512,6 +530,7 @@ public class JLispInterpreter3 {
             });
             reg("string->symbol", applyArgs -> Symbols.of(((Strings) applyArgs.args()[0]).getVal()));
             reg("string-append", applyArgs -> warp(Arrays.stream(applyArgs.args()).map(o -> (Strings) o).map(Strings::getVal).collect(Collectors.joining())));
+            reg("string-replace-all-space", applyArgs -> ((Strings)applyArgs.args()[0]).replaceAllSpace());
         }
 
         private static void regDict() {
@@ -520,7 +539,7 @@ public class JLispInterpreter3 {
                 Object[] args = applyArgs.args();
                 return Dict.of((Cons) args[0], (Cons) args[1]);
             });
-            reg("make-dict", applyArgs -> Dict.mark());
+            reg("mark-dict", applyArgs -> Dict.mark());
             reg("dict-remove!", applyArgs -> ((Dict) applyArgs.args()[0]).remove(applyArgs.args()[1]));
             reg("dict-get", applyArgs -> ((Dict) applyArgs.args()[0]).get(applyArgs.args()[1]));
             reg("dict-put!", applyArgs -> {
@@ -546,6 +565,11 @@ public class JLispInterpreter3 {
                 throw new IllegalArgumentException(applyArgs.args()[0].toString());
             });
             reg("method?", applyArgs -> allMath(applyArgs, o -> o instanceof Function));
+            reg("read-line", applyArgs -> {
+                Scanner scanner = new Scanner(System.in);
+                applyArgs.env.setEnv(applyArgs.getExp().carSymbols(), Strings.of(scanner.next()));
+                return Nil.NIL;
+            });
         }
 
         private static Object allMath(ApplyArgs applyArgs, Predicate<Object> predicates) {
@@ -576,7 +600,9 @@ public class JLispInterpreter3 {
                 return ((Booleans) o).getVal();
             } else if (o instanceof Cons) {
                 return !((Cons) o).isEmpty();
-            } else {
+            } else if (o instanceof Character) {
+                return !o.equals('0');
+            } else{
                 return !o.equals(0);
             }
         }
