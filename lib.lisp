@@ -1,10 +1,15 @@
 (
-    (define-macro when (lambda
+    (`(define-macro when (lambda
         (test . branch)
         (apply ( list (quote if) test branch))))
     (define-macro unless  (lambda
         (test . branch)
         (apply ( list (quote if) (cons (quote not) test) branch))))
+    )
+    (define println (lambda (x) (
+        (display x)
+        (newline)
+    )))
     (define map (lambda (f l)(list-map l f)))
     (define-macro defun (lambda (name args . body) (
         `(
@@ -23,6 +28,9 @@
                   (set! ,(car *set*) ,(car (cdr *set*)))
               ))
        )))
+   )))
+   (define-macro loop (lambda (. exp) (
+        `(while (#t) ,exp)
    )))
    (define-macro export(lambda (. exports) (
        ` (dict (list ,@(map symbol->string exports)) (list ,@exports))
