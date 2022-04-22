@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.yangrd.lab.lisp.support.ConsMarker;
+import org.yangrd.lab.lisp.support.ConsMaker;
 import org.yangrd.lab.lisp.support.FileUtils;
 import org.yangrd.lab.lisp.type.*;
 
@@ -60,7 +60,7 @@ public class JLispInterpreter3 {
     }
 
     private static Object eval(Object o, Cons parentExp, Env env) {
-        return IS_EXP.test(o) ? eval((Cons) o, env) : (IS_SYMBOLS.test(o) ? eval(ConsMarker.markSubExp(parentExp, o), env) : o);
+        return IS_EXP.test(o) ? eval((Cons) o, env) : (IS_SYMBOLS.test(o) ? eval(ConsMaker.makeSubExp(parentExp, o), env) : o);
     }
 
     private static Object apply(Object v, Cons cdr, Env env, Object... args) {
@@ -87,7 +87,7 @@ public class JLispInterpreter3 {
         }
 
         public Cons argsCons() {
-            return ConsMarker.markList(args());
+            return ConsMaker.makeList(args());
         }
     }
 
@@ -129,7 +129,7 @@ public class JLispInterpreter3 {
                 System.out.println();
                 return Nil.NIL;
             });
-            reg("begin", applyArgs -> applyArgs.eval(ConsMarker.markExp(applyArgs.getExp().parent(), applyArgs.getExp().data().toArray())));
+            reg("begin", applyArgs -> applyArgs.eval(ConsMaker.makeExp(applyArgs.getExp().parent(), applyArgs.getExp().data().toArray())));
             reg("define", FunManager::define);
             reg("define-macro", FunManager::defineMacro);
             reg("let", applyArgs -> let(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
@@ -178,7 +178,7 @@ public class JLispInterpreter3 {
                     if (!args.isEmpty()) {
 //                        System.out.println(args);
                         if (args.carSymbols().equals(Symbols.of("."))) {
-                            loopBind(env, args.cdr(), val.data().size() == 1 && IS_EXP.test(val.car()) ? val : ConsMarker.markList(val));
+                            loopBind(env, args.cdr(), val.data().size() == 1 && IS_EXP.test(val.car()) ? val : ConsMaker.makeList(val));
                         } else {
                             env.setEnv(args.carSymbols(), val.car());
                             if (!args.cdr().isEmpty()) {
@@ -292,7 +292,7 @@ public class JLispInterpreter3 {
             Cons cdr = applyArgs.getExp();
             validateTrue(applyArgs.getEnv().noContains(cdr.carSymbols()), "Do not repeat the definition " + cdr.carSymbols());
             Function<ApplyArgs, Object> applyFun = (applyArgs1) -> {
-                Cons cons = ConsMarker.markList(Symbols.of("apply"), cdr.cdr().car(), ConsMarker.markQuote(applyArgs1.getExp().list().toArray()));
+                Cons cons = ConsMaker.makeList(Symbols.of("apply"), cdr.cdr().car(), ConsMaker.makeQuote(applyArgs1.getExp().list().toArray()));
                 Object apply = applyArgs1.eval(cons);
 //                log.debug("marco fun: {} , from: {}", cdr.carSymbols(), apply);
                 return applyArgs1.eval(apply, applyArgs1.getExp(), applyArgs1.getEnv());
@@ -395,7 +395,7 @@ public class JLispInterpreter3 {
         private static void regConsFun() {
             reg("cons", applyArgs -> {
                 Object[] objects = applyArgs.args();
-                return warp(ConsMarker.markCons(objects[0], objects[1]));
+                return warp(ConsMaker.makeCons(objects[0], objects[1]));
             });
             reg("car", applyArgs -> ((Cons) (applyArgs.args()[0])).car());
             reg("cdr", applyArgs -> {
@@ -412,9 +412,9 @@ public class JLispInterpreter3 {
                 ((Cons) x[0]).list().set(1, x[1]);
                 return null;
             });
-            reg("list", applyArgs -> ConsMarker.markList(applyArgs.args()));
-            reg("mark-list", applyArgs -> ConsMarker.markList(new Object[(int)applyArgs.args()[0]]));
-            reg("mark-boolean-list", applyArgs -> ConsMarker.markList(new Booleans[(int)applyArgs.args()[0]]));
+            reg("list", applyArgs -> ConsMaker.makeList(applyArgs.args()));
+            reg("make-list", applyArgs -> ConsMaker.makeList(new Object[(int)applyArgs.args()[0]]));
+            reg("make-boolean-list", applyArgs -> ConsMaker.makeList(new Booleans[(int)applyArgs.args()[0]]));
             reg("list-ref", applyArgs -> {
                 Object[] x = applyArgs.args();
                 return ((Cons) x[0]).list().get((Integer) x[1]);
@@ -422,7 +422,7 @@ public class JLispInterpreter3 {
             reg("list-tail", applyArgs -> {
                 Object[] x = applyArgs.args();
                 Cons cons = (Cons) x[0];
-                return ConsMarker.markList(cons.list().subList((Integer) x[1], cons.list().size()).toArray());
+                return ConsMaker.makeList(cons.list().subList((Integer) x[1], cons.list().size()).toArray());
             });
             reg("list-set!", applyArgs -> {
                 ((Cons) applyArgs.args()[0]).list().set((int) applyArgs.args()[1], applyArgs.args()[2]);
@@ -444,7 +444,7 @@ public class JLispInterpreter3 {
                 for (int i = 0; i < list.size(); i++) {
                     r.add(applyArgs.apply(f, arg, applyArgs.getEnv(), Arrays.asList(list.get(i), i, arg).toArray()));
                 }
-                return ConsMarker.markList(r.toArray());
+                return ConsMaker.makeList(r.toArray());
             });
             reg("list-foreach", applyArgs -> {
                 Cons arg = (Cons) applyArgs.args()[0];
@@ -458,7 +458,7 @@ public class JLispInterpreter3 {
             reg("list-sub", applyArgs -> {
                 Cons arg = (Cons) applyArgs.args()[0];
                 List<Object> list = arg.list();
-                return ConsMarker.markList(list.subList((int) applyArgs.args()[1], (int) applyArgs.args()[2]).toArray());
+                return ConsMaker.makeList(list.subList((int) applyArgs.args()[1], (int) applyArgs.args()[2]).toArray());
             });
             reg("null?", applyArgs -> allMath(applyArgs, o -> {
                 if (o instanceof Cons) {
@@ -518,12 +518,12 @@ public class JLispInterpreter3 {
                 ((Vectors) applyArgs.args()[0]).set((Integer) applyArgs.args()[1], applyArgs.args()[2]);
                 return Nil.NIL;
             });
-            reg("vector->list", applyArgs -> ConsMarker.markList(((Vectors) applyArgs.args()[0]).data()));
+            reg("vector->list", applyArgs -> ConsMaker.makeList(((Vectors) applyArgs.args()[0]).data()));
         }
 
         private static void regStringsFun() {
             reg("string?", applyArgs -> allMath(applyArgs, o -> o instanceof Strings));
-            reg("string->list", applyArgs -> ConsMarker.markList(((Strings) applyArgs.args()[0]).toCharArray()));
+            reg("string->list", applyArgs -> ConsMaker.makeList(((Strings) applyArgs.args()[0]).toCharArray()));
             reg("string->number", applyArgs -> {
                 try {
                     return Integer.valueOf(((Strings) applyArgs.args()[0]).getVal());
@@ -543,7 +543,7 @@ public class JLispInterpreter3 {
                 Object[] args = applyArgs.args();
                 return Dict.of((Cons) args[0], (Cons) args[1]);
             });
-            reg("mark-dict", applyArgs -> Dict.mark());
+            reg("make-dict", applyArgs -> Dict.mark());
             reg("dict-remove!", applyArgs -> ((Dict) applyArgs.args()[0]).remove(applyArgs.args()[1]));
             reg("dict-get", applyArgs -> ((Dict) applyArgs.args()[0]).get(applyArgs.args()[1]));
             reg("dict-put!", applyArgs -> {
@@ -551,9 +551,9 @@ public class JLispInterpreter3 {
                 return Nil.NIL;
             });
             reg("dict-contains?", applyArgs -> warp(((Dict) applyArgs.args()[0]).containsKey(applyArgs.args()[1])));
-            reg("dict-keys->list", applyArgs -> ConsMarker.markList(((Dict) applyArgs.args()[0]).keySet().toArray()));
-            reg("dict-values->list", applyArgs -> ConsMarker.markList(((Dict) applyArgs.args()[0]).values().toArray()));
-            reg("dict-items->list", applyArgs -> ConsMarker.markList(((Dict) applyArgs.args()[0]).entrySet().stream().map(e -> ConsMarker.markCons(e.getKey(), e.getValue())).toArray()));
+            reg("dict-keys->list", applyArgs -> ConsMaker.makeList(((Dict) applyArgs.args()[0]).keySet().toArray()));
+            reg("dict-values->list", applyArgs -> ConsMaker.makeList(((Dict) applyArgs.args()[0]).values().toArray()));
+            reg("dict-items->list", applyArgs -> ConsMaker.makeList(((Dict) applyArgs.args()[0]).entrySet().stream().map(e -> ConsMaker.makeCons(e.getKey(), e.getValue())).toArray()));
         }
 
         private static void regBaseFun() {
@@ -619,7 +619,7 @@ public class JLispInterpreter3 {
                 return Booleans.of((Boolean) o);
             }
             if (o instanceof Cons && ((Cons) o).isCons()) {
-                Cons list = ConsMarker.markList();
+                Cons list = ConsMaker.makeList();
                 Cons x = (Cons) o;
                 if (x.data().size() > 1 && IS_EXP.test(x.list().get(1)) && (x.cdr().isCons() || x.cdr().isList())) {
                     while (!x.isEmpty()) {

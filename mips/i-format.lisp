@@ -37,7 +37,7 @@
     ))
 
     (func i-slti (rs rt immediate) (
-        (define tmp (mark-empty-list))
+        (define tmp (make-word ))
         (sub immediate rs  tmp)
         ; 第一位是0代表是非负数 如果是非负数 说明 rt>rs
         (when (eq? car tmp #f) (
@@ -56,7 +56,7 @@
         )))
     ))
 
-   (define mapper (mark-dict))
+   (define mapper (make-dict))
    (dict-put! mapper (list->string(list 0 0 1 0 0 0)) i-addi)
    (dict-put! mapper (list->string(list 0 0 1 1 0 0)) i-andi)
    (dict-put! mapper (list->string(list 0 0 1 1 0 1)) i-ori)

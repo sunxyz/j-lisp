@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.yangrd.lab.lisp.type.Booleans;
 import org.yangrd.lab.lisp.type.Strings;
 import org.yangrd.lab.lisp.type.Symbols;
-import org.yangrd.lab.lisp.support.ConsMarker;
+import org.yangrd.lab.lisp.support.ConsMaker;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -50,7 +50,7 @@ public class Parse {
     }
 
     private static List<Object> exp2List(String exp, Cons parent) {
-        return exp.trim().length() == 0 ? Collections.emptyList() : Arrays.stream(exp.trim().split(" ")).map(Parse::parseObj).map(o -> o instanceof Cons ? ConsMarker.markExp(parent, ((Cons) o).data().toArray()) : o).flatMap(o -> o instanceof List ? ((List<?>) o).stream() : Stream.of(o)).collect(Collectors.toList());
+        return exp.trim().length() == 0 ? Collections.emptyList() : Arrays.stream(exp.trim().split(" ")).map(Parse::parseObj).map(o -> o instanceof Cons ? ConsMaker.makeExp(parent, ((Cons) o).data().toArray()) : o).flatMap(o -> o instanceof List ? ((List<?>) o).stream() : Stream.of(o)).collect(Collectors.toList());
     }
 
     private static String format(String str) {
@@ -78,7 +78,7 @@ public class Parse {
         } else {
             Optional<String> first = SPLIT_SYMBOLS.stream().filter(o -> atom.indexOf(o) == 0).findFirst();
             Optional<String> flatFirst = FLAT_SYMBOLS.stream().filter(o -> atom.indexOf(o) == 0).findFirst();
-            return first.isPresent() && first.get().length() < atom.length() ? ConsMarker.markList(Symbols.of(first.get()), parseObj(atom.substring(first.get().length()))) : (flatFirst.isPresent() && flatFirst.get().length() < atom.length() ? Arrays.asList(Symbols.of(flatFirst.get()), parseObj(atom.substring(flatFirst.get().length()))) : Symbols.of(atom));
+            return first.isPresent() && first.get().length() < atom.length() ? ConsMaker.makeList(Symbols.of(first.get()), parseObj(atom.substring(first.get().length()))) : (flatFirst.isPresent() && flatFirst.get().length() < atom.length() ? Arrays.asList(Symbols.of(flatFirst.get()), parseObj(atom.substring(flatFirst.get().length()))) : Symbols.of(atom));
         }
     }
 }

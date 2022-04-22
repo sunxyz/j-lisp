@@ -26,7 +26,7 @@
     ))
 
     (func sub (la lb lc)(
-        (define rd (mark-empty-list))
+        (define rd (make-word ))
         (add la  (to-negative lb rd) lc)
     ))
 

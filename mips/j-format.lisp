@@ -1,7 +1,7 @@
 (
 
     (func j-j (address) (
-        (define tmp (mark-empty-list))
+        (define tmp (make-word))
         (move $pc tmp)
         (sll address _2)
         (for ((i 4) (< i 32) (i (+ i 1))) (
@@ -12,7 +12,7 @@
 
     (func j-jal (address) (
         (move $pc $ra)
-        (define tmp (mark-empty-list))
+        (define tmp (make-word))
         (move $pc tmp)
         (sll address _2)
         (for ((i 4) (< i 32) (i (+ i 1))) (
@@ -21,7 +21,7 @@
         (move tmp $pc)
     ))
 
-    (define mapper (mark-dict))
+    (define mapper (make-dict))
     (dict-put! mapper (list->string(list 0 0 0 0 1 0)) j-j)
     (dict-put! mapper (list->string(list 0 0 0 0 1 1)) j-jal)
 

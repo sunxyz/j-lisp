@@ -1,7 +1,7 @@
 (
     (load 'mips/booleans.lisp')
     (load 'mips/alu.lisp')
-    (import ($pc-write $pc  $write $ memory-write memory-read mark-empty-list completion-word) from 'mips/base.lisp')
+    (import ($pc-write $pc  $write $ memory-write memory-read make-word completion-word) from 'mips/base.lisp')
     (import (r-instruct) from 'mips/r-format.lisp')
     (import (i-instruct) from 'mips/i-format.lisp')
     (import (j-instruct) from 'mips/j-format.lisp')
@@ -20,7 +20,7 @@
         (add la $zero lb)
     ))
     (func pcAdd4()(
-        (define temp (mark-empty-list))
+        (define temp (make-word))
         (add ($pc) _4 temp)
         ($pc-write temp)
     ))
@@ -44,13 +44,13 @@
         (define word nil)
         (while (next) (
             (set! word (memory-read ($pc)))
-            (println 'pc:' ($pc) '  word:' word)
             (when (null? (car word)) (
                 (set! next #f)
             ))
             (when (next) (
-                 (id word)
-                 (pcAdd4)
+                (println 'pc:' ($pc) '  word:' word)
+                (id word)
+                (pcAdd4)
             ))
         ))
     ))

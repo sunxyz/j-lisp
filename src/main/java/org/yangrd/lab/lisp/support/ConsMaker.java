@@ -7,28 +7,31 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 
-public final class ConsMarker {
+/**
+ * @author yangrd
+ */
+public final class ConsMaker {
 
-    public static Cons markExp(Cons parent, Object... data) {
+    public static Cons makeExp(Cons parent, Object... data) {
         return Cons.of(new ArrayList<>(Arrays.asList(data)), parent, Cons.ConsType.EXP);
     }
 
-    public static Cons markSubExp(Cons parent, Object obj) {
+    public static Cons makeSubExp(Cons parent, Object obj) {
         return Cons.of(Collections.singletonList(obj), parent, Cons.ConsType.SUB_EXP);
     }
 
-    public static Cons markList(Object... data) {
+    public static Cons makeList(Object... data) {
         return Cons.of(new ArrayList<>(Arrays.asList(data)), null, Cons.ConsType.LIST);
     }
 
-    public static Cons markCons(Object o, Object o2) {
+    public static Cons makeCons(Object o, Object o2) {
         return Cons.of(Arrays.asList(o, o2), null, Cons.ConsType.CONS);
     }
 
-    public static Cons markQuote(Object... data) {
+    public static Cons makeQuote(Object... data) {
         Cons quote = Cons.of(new ArrayList<>(Collections.singletonList(Symbols.of("quote"))), null, Cons.ConsType.QUOTE);
         if (data.length > 0) {
-            quote.add(markExp(quote, data));
+            quote.add(makeExp(quote, data));
         }
         return quote;
     }

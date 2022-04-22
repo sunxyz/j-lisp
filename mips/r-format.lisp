@@ -74,7 +74,7 @@
         )))
     ))
 
-    (define mapper (mark-dict))
+    (define mapper (make-dict))
     (dict-put! mapper (list->string(list 1 0 0 0 0 0)) r-add)
     (dict-put! mapper (list->string(list 1 0 0 0 1 0)) r-sub)
     (dict-put! mapper (list->string(list 1 0 0 1 0 0)) r-and)
