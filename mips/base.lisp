@@ -27,6 +27,7 @@
         (list-ref _$ index)
     ))
 
+    ;内存
     (define _word_size 32)
     (define _byte_size 8)
     (define _memory (mark-boolean-list (* 8 1024)))
@@ -52,6 +53,7 @@
         n
     ))
 
+    ;补全
     (func completion-word(ls)(
         (define tmp (mark-empty-list))
         (define len (length ls))

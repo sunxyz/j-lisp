@@ -21,7 +21,7 @@
     ))
 
     (func r-nor (rs rt rd) (
-        covert(xor rs rt rd)
+        covert(nor rs rt rd)
     ))
 
     (func r-slt (rs rt rd) (

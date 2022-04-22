@@ -26,48 +26,48 @@
     ))
 
     (func sub (la lb lc)(
-        (define rd mark-empty-list)
+        (define rd (mark-empty-list))
         (add la  (to-negative lb rd) lc)
     ))
 
-     ;负数单元
-      (func to-negative(rs rd) (
-            // 取反 + 1
-            (add (map not rs) _1 rd)
-            rd
-      ))
+    ;负数单元
+    (func to-negative(rs rd) (
+        // 取反 + 1
+        (add (map not rs) _1 rd)
+        rd
+    ))
 
-      ;左移
-      (func sll(l bitNum) (
-          (define num (_two2ten  bitNum))
-          (define len (length  l))
-          (for((i num)(< i len)(i (+ i 1)))(
-              (list-set! l (- i num) (list-ref l i))
-          ))
-          ; 后几位 是 0
-          (for ((i (- len num)) (< i len) (i (+ i 1))) (
-              list-set! l i 0
-          ))
-      ))
-      ; 右移
-      (func srl(l bitNum) (
-          (define num (_two2ten  bitNum))
-          (define len (length  l))
-          (for((i (- len num))(< num i)(i (- i 1)))(
-              (list-set! l (+ i num) (list-ref l i))
-          ))
-          ; 前几位 是 0
-          (for ((i 0) (< i num) (i (+ i 1))) (
-              list-set! l i 0
-          ))
-      ))
+    ;左移
+    (func sll(l bitNum) (
+        (define num (_two2ten  bitNum))
+        (define len (length  l))
+        (for((i num)(< i len)(i (+ i 1)))(
+            (list-set! l (- i num) (list-ref l i))
+        ))
+        ; 后几位 是 0
+        (for ((i (- len num)) (< i len) (i (+ i 1))) (
+            list-set! l i 0
+        ))
+    ))
+    ; 右移
+    (func srl(l bitNum) (
+        (define num (_two2ten  bitNum))
+        (define len (length  l))
+        (for((i (- len num))(< num i)(i (- i 1)))(
+            (list-set! l (+ i num) (list-ref l i))
+        ))
+        ; 前几位 是 0
+        (for ((i 0) (< i num) (i (+ i 1))) (
+            list-set! l i 0
+        ))
+    ))
 
-     (func _two2ten (ls) (
-          (define len (length ls))
-          (define n 0)
-          (for ((i 0) (< i len) (i (+ i 1))) (
-              (set! n (+ (boolean->number (list-ref ls i)) (* n 2)))
-          ))
-          n
-     ))
+    (func _two2ten (ls) (
+        (define len (length ls))
+        (define n 0)
+        (for ((i 0) (< i len) (i (+ i 1))) (
+            (set! n (+ (boolean->number (list-ref ls i)) (* n 2)))
+        ))
+        n
+    ))
 )

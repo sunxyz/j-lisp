@@ -25,15 +25,15 @@
         ($pc-write temp)
     ))
 
-    (func exec(word)(
-        ;执行
+    (func id(word)(
         (define op (list-sub word 0 6))
-        (define r-r (list 0 0 0 0 0 0))
-        (define r-j-0 (list 0 0 0 0 1 0))
-        (define r-j-1 (list 0 0 0 0 1 1))
-        (if (eqv? op r-r)
+        (define r-i (list 0 0 0 0 0 0))
+        (define j-i-0 (list 0 0 0 0 1 0))
+        (define j-i-1 (list 0 0 0 0 1 1))
+        ;执行
+        (if (eqv? op r-i)
             (r-instruct word)
-            (if (or (eqv? op r-j-0) (eqv? op r-j-1))
+            (if (or (eqv? op j-i-0) (eqv? op j-i-1))
                 (j-instruct word)
                 (i-instruct word)))
     ))
@@ -53,12 +53,11 @@
                 (set! next #f)
             ))
             (when (next) (
-                 (exec word)
+                 (id word)
                  (pcAdd4)
             ))
         ))
     ))
 
     (start (load 'mips/set.data'))
-
 )

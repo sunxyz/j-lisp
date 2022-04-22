@@ -379,7 +379,7 @@ public class JLispInterpreter3 {
             });
             reg("not", applyArgs -> {
                 Object[] ts = applyArgs.args();
-                validateTrue(ts.length == 1, applyArgs.getExp() + "not args only one");
+                validateTrue(ts.length > 0, applyArgs.getExp() + "not args only one");
                 return warp(!toBoolean(ts[0]));
             });
             reg("eqv?", applyArgs -> predicate(applyArgs, Object::equals));

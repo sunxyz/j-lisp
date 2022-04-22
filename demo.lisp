@@ -76,4 +76,31 @@
        (println (dog-obj `get-name))
        (println (dog-obj `get-name))
        (dog-obj `set-name ('狗子0'))
+
+
+         (define tcp-listen (socket '192.168.8.0:8080'))
+           (tcp-listen  (lambda (req) (
+               (req)
+               (res)
+           ))
+           (define server-listen (http-server tcp-listen))
+           (server-listen (lambda (req) (
+               (write-html-body  'hello world'  (get-location reg))
+           )))
+           (define http-request struct (
+               (head dict)
+               (body string)
+           ))
+           (func (this http-request) get-location () (
+               (dict-get (get-dict this) 'location')
+           ))
+
+           (func (this http-request) get-body0 () (
+                (this get-body args ) => (get-body this args)
+           ))
+           (func @ (s f . args) (
+               apply f s args
+           ))
+            (this.xxx y b => (xxx this y b))
+            (this.xxx(y b) => (apply xxx this (y b)))
 )

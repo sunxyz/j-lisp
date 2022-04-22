@@ -3,7 +3,7 @@
     ;(func and (a b) (and a b))
     ;(func or (a b) (or a b))
     ;(func not (a) (not a))
-    (func nand (a b) (not (and a b)))
+    ;(func nand (a b) (not (and a b)))
     (func nor (a b) (not (or a b)))
     (func xor (a b) (not (or (and a b) (and (not a) (not b)))))
     (func eq? (a b) (not (xor a b)))
