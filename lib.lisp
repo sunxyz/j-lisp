@@ -6,8 +6,8 @@
         (test . branch)
         (apply ( list (quote if) (cons (quote not) test) branch))))
     )
-    (define println (lambda (x) (
-        (display x)
+    (define println (lambda (. args) (
+        (map (λ (x) (display x)) args)
         (newline)
     )))
     (define map (lambda (f l)(list-map l f)))

@@ -22,11 +22,11 @@
     ))
 
     (define mapper (mark-dict))
-    (dict-put! mapper (list 0 0 0 0 1 0) j-j)
-    (dict-put! mapper (list 0 0 0 0 1 1) j-jal)
+    (dict-put! mapper (list->string(list 0 0 0 0 1 0)) j-j)
+    (dict-put! mapper (list->string(list 0 0 0 0 1 1)) j-jal)
 
     (func j-instruct (ls) (
-        (define op (list-sub 0 6))
+        (define op (list->string(list-sub 0 6)))
         (define address (list-tail ls 6))
         ((dict-get mapper op) address)
     ))

@@ -44,11 +44,7 @@
         (define word nil)
         (while (next) (
             (set! word (memory-read ($pc)))
-            (display 'pc:')
-            (display ($pc))
-            (display 'word:')
-            (display word)
-            (newline)
+            (println 'pc:' ($pc) '  word:' word)
             (when (null? (car word)) (
                 (set! next #f)
             ))
