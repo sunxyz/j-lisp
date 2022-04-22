@@ -1,9 +1,13 @@
 package org.yangrd.lab.lisp.support;
 
+import org.yangrd.lab.lisp.type.Booleans;
+import org.yangrd.lab.lisp.type.Nil;
+import org.yangrd.lab.lisp.type.Strings;
+
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.function.Function;
 
 public class FileUtils {
 
@@ -12,18 +16,39 @@ public class FileUtils {
         file = file.indexOf("/")==0?file:System.getProperty("user.dir")+"/"+file;
         try ( FileReader f = new FileReader(file);BufferedReader reader = new BufferedReader(f)) {
             String line = reader.readLine();
-
-            while (line != null) { // 如果 line 为空说明读完了
+            // 如果 line 为空说明读完了
+            while (line != null) {
                 line = line.trim();
                 line = line.indexOf("//")==0||line.indexOf(";")==0?"":line;
-                buffer.append(line); // 将读到的内容添加到 buffer 中
-                buffer.append("\n"); // 添加换行符
-                line = reader.readLine(); // 读取下一行
-
+                // 将读到的内容添加到 buffer 中
+                buffer.append(line);
+                // 添加换行符
+                buffer.append("\n");
+                // 读取下一行
+                line = reader.readLine();
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
        return buffer.toString();
+    }
+
+    public static void readFileLine(String file, Function<Object, Booleans> readLiner, boolean skipNotes){
+        file = file.indexOf("/")==0?file:System.getProperty("user.dir")+"/"+file;
+        try ( FileReader f = new FileReader(file);BufferedReader reader = new BufferedReader(f)) {
+            String line = reader.readLine();
+            boolean isReadLine = true;
+            // 如果 line 为空说明读完了
+            while (line != null && isReadLine) {
+                line = line.trim();
+                if(line.indexOf("//")==0||line.indexOf(";")==0&&skipNotes){
+                }else {
+                    isReadLine = readLiner.apply(line.length()==0?Nil.NIL:Strings.of(line)).getVal();
+                }
+                line = reader.readLine();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

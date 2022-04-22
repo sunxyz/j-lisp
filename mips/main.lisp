@@ -55,5 +55,6 @@
         ))
     ))
 
-    (start (load 'mips/set.data'))
+    ;(start (load 'mips/set.data'))
+    (read-file-line (lambda (x) ( (display x) (newline))) 'mips/set.data' )
 )

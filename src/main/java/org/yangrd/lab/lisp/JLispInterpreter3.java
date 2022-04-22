@@ -143,10 +143,12 @@ public class JLispInterpreter3 {
             regConsFun();
             regDict();
             regBaseFun();
+            regFileFun();
             reg("nil", applyArgs -> Nil.NIL);
             reg("if", applyArgs -> if0(applyArgs, applyArgs.getExp()));
             reg("cond", applyArgs -> cond(applyArgs.getExp(), applyArgs.getEnv(), applyArgs::eval));
         }
+
 
         public static void reg(String optKey, Function<ApplyArgs, Object> opt) {
             FUNCTIONAL.put(optKey, opt);
@@ -358,22 +360,22 @@ public class JLispInterpreter3 {
 
         private static void regBooleanFun() {
             reg("and", applyArgs -> {
-                List<Object> list = applyArgs.args!=null?Arrays.asList(applyArgs.args()): applyArgs.getExp().list();
-                List<Object> holder = new ArrayList<>();
-                holder.add(null);
-                return warp(list.stream().map(o -> {
-                   Object t = applyArgs.eval(o, applyArgs.getExp());
-                    holder.set(0,t);
-                   return t;
-                }).allMatch(FunManager::toBoolean) ? holder.iterator().next() : false);
-            });
-            reg("or", applyArgs ->{
-                List<Object> list = applyArgs.args!=null?Arrays.asList(applyArgs.args()): applyArgs.getExp().list();
+                List<Object> list = applyArgs.args != null ? Arrays.asList(applyArgs.args()) : applyArgs.getExp().list();
                 List<Object> holder = new ArrayList<>();
                 holder.add(null);
                 return warp(list.stream().map(o -> {
                     Object t = applyArgs.eval(o, applyArgs.getExp());
-                    holder.set(0,t);
+                    holder.set(0, t);
+                    return t;
+                }).allMatch(FunManager::toBoolean) ? holder.iterator().next() : false);
+            });
+            reg("or", applyArgs -> {
+                List<Object> list = applyArgs.args != null ? Arrays.asList(applyArgs.args()) : applyArgs.getExp().list();
+                List<Object> holder = new ArrayList<>();
+                holder.add(null);
+                return warp(list.stream().map(o -> {
+                    Object t = applyArgs.eval(o, applyArgs.getExp());
+                    holder.set(0, t);
                     return t;
                 }).anyMatch(FunManager::toBoolean) ? holder.iterator().next() : false);
             });
@@ -389,7 +391,7 @@ public class JLispInterpreter3 {
             reg("!=", applyArgs -> predicate(applyArgs, (x, y) -> !x.equals(y)));
             reg(">", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x > (Integer) y : x.toString().length() > y.toString().length()));
             reg(">=", applyArgs -> predicate(applyArgs, (x, y) -> (x instanceof Integer && y instanceof Integer) ? (Integer) x >= (Integer) y : x.toString().length() >= y.toString().length()));
-            reg("boolean->number",applyArgs -> toBoolean(applyArgs.args()[0])?1:0);
+            reg("boolean->number", applyArgs -> toBoolean(applyArgs.args()[0]) ? 1 : 0);
         }
 
         private static void regConsFun() {
@@ -413,8 +415,8 @@ public class JLispInterpreter3 {
                 return null;
             });
             reg("list", applyArgs -> ConsMaker.makeList(applyArgs.args()));
-            reg("make-list", applyArgs -> ConsMaker.makeList(new Object[(int)applyArgs.args()[0]]));
-            reg("make-boolean-list", applyArgs -> ConsMaker.makeList(new Booleans[(int)applyArgs.args()[0]]));
+            reg("make-list", applyArgs -> ConsMaker.makeList(new Object[(int) applyArgs.args()[0]]));
+            reg("make-boolean-list", applyArgs -> ConsMaker.makeList(new Booleans[(int) applyArgs.args()[0]]));
             reg("list-ref", applyArgs -> {
                 Object[] x = applyArgs.args();
                 return ((Cons) x[0]).list().get((Integer) x[1]);
@@ -534,7 +536,7 @@ public class JLispInterpreter3 {
             });
             reg("string->symbol", applyArgs -> Symbols.of(((Strings) applyArgs.args()[0]).getVal()));
             reg("string-append", applyArgs -> warp(Arrays.stream(applyArgs.args()).map(o -> (Strings) o).map(Strings::getVal).collect(Collectors.joining())));
-            reg("string-replace-all-space", applyArgs -> ((Strings)applyArgs.args()[0]).replaceAllSpace());
+            reg("string-replace-all-space", applyArgs -> ((Strings) applyArgs.args()[0]).replaceAllSpace());
         }
 
         private static void regDict() {
@@ -576,6 +578,15 @@ public class JLispInterpreter3 {
             });
         }
 
+        private static void regFileFun() {
+            // custom
+            reg("read-file-line", applyArgs -> {
+                Object[] args = applyArgs.args();
+                FileUtils.readFileLine(((Strings) args[1]).getVal(), line -> Booleans.of(!applyArgs.apply(args[0], applyArgs.getExp(), applyArgs.getEnv(), line).equals(Booleans.FALSE)), args.length>2?Booleans.TRUE.equals(args[2]):true);
+                return Nil.NIL;
+            });
+        }
+
         private static Object allMath(ApplyArgs applyArgs, Predicate<Object> predicates) {
             Object[] objs = applyArgs.args();
             validateTrue(objs.length > 0, applyArgs.getExp() + " args qty > 0 ");
@@ -606,7 +617,7 @@ public class JLispInterpreter3 {
                 return !((Cons) o).isEmpty();
             } else if (o instanceof Character) {
                 return !o.equals('0');
-            } else{
+            } else {
                 return !o.equals(0);
             }
         }
