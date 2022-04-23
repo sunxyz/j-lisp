@@ -33,20 +33,10 @@ public class FileUtils {
        return buffer.toString();
     }
 
-    public static void readFileLine(String file, Function<Object, Booleans> readLiner, boolean skipNotes){
+    public static void readFileLine(String file, Function<BufferedReader, Nil> fReader){
         file = file.indexOf("/")==0?file:System.getProperty("user.dir")+"/"+file;
         try ( FileReader f = new FileReader(file);BufferedReader reader = new BufferedReader(f)) {
-            String line = reader.readLine();
-            boolean isReadLine = true;
-            // 如果 line 为空说明读完了
-            while (line != null && isReadLine) {
-                line = line.trim();
-                if(line.indexOf("//")==0||line.indexOf(";")==0&&skipNotes){
-                }else {
-                    isReadLine = readLiner.apply(line.length()==0?Nil.NIL:Strings.of(line)).getVal();
-                }
-                line = reader.readLine();
-            }
+            fReader.apply(reader);
         } catch (IOException e) {
             e.printStackTrace();
         }

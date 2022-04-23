@@ -8,6 +8,10 @@ import org.yangrd.lab.lisp.support.ConsMaker;
 import org.yangrd.lab.lisp.support.FileUtils;
 import org.yangrd.lab.lisp.type.*;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.*;
@@ -120,11 +124,7 @@ public class JLispInterpreter3 {
             reg("lambda", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv(), false));
             reg("lambda-lep", applyArgs -> lambda(applyArgs.getExp(), applyArgs.getEnv(), true));
             reg("quote", applyArgs -> quote(applyArgs.getExp(), applyArgs));
-            reg("display", applyArgs -> {
-                Object val = applyArgs.eval(applyArgs.getExp());
-                System.out.print(val instanceof Function ? "<procedure>" : val);
-                return Nil.NIL;
-            });
+
             reg("newline", applyArgs -> {
                 System.out.println();
                 return Nil.NIL;
@@ -537,6 +537,13 @@ public class JLispInterpreter3 {
             reg("string->symbol", applyArgs -> Symbols.of(((Strings) applyArgs.args()[0]).getVal()));
             reg("string-append", applyArgs -> warp(Arrays.stream(applyArgs.args()).map(o -> (Strings) o).map(Strings::getVal).collect(Collectors.joining())));
             reg("string-replace-all-space", applyArgs -> ((Strings) applyArgs.args()[0]).replaceAllSpace());
+            reg("string-index-of", applyArgs -> ((Strings) applyArgs.args()[0]).indexOf((Strings)applyArgs.args()[1]));
+            reg("string-upcase", applyArgs -> ((Strings) applyArgs.args()[0]).upcase());
+            reg("string-downcase", applyArgs -> ((Strings) applyArgs.args()[0]).downcase());
+            reg("string-trim", applyArgs -> ((Strings) applyArgs.args()[0]).trim());
+            reg("string-substitute", applyArgs -> ((Strings) applyArgs.args()[0]).substitute((Strings) applyArgs.args()[1],(Strings) applyArgs.args()[2]));
+            reg("string-subseq", applyArgs -> ((Strings) applyArgs.args()[0]).subseq((Integer) applyArgs.args()[1],(Integer) applyArgs.args()[2]));
+            reg("string-remove", applyArgs -> ((Strings) applyArgs.args()[0]).remove((Strings) applyArgs.args()[1]));
         }
 
         private static void regDict() {
@@ -572,17 +579,60 @@ public class JLispInterpreter3 {
             });
             reg("method?", applyArgs -> allMath(applyArgs, o -> o instanceof Function));
             reg("read-line", applyArgs -> {
-                Scanner scanner = new Scanner(System.in);
-                applyArgs.env.setEnv(applyArgs.getExp().carSymbols(), Strings.of(scanner.next()));
+                if(applyArgs.args().length>0){
+                    Object[] args = applyArgs.args();
+                    validateTrue(args[0] instanceof BufferedReader, applyArgs.getExp()+",  arg0 not io");
+                    try {
+                        String str = ((BufferedReader) args[0]).readLine();
+                        return Objects.isNull(str)?Nil.NIL:Strings.of(str);
+                    }catch (IOException e){
+                        throw new RuntimeException(e);
+                    }
+                }else {
+                    Scanner scanner = new Scanner(System.in);
+                    return Strings.of(scanner.next());
+                }
+            });
+            reg("eval", applyArgs -> {
+                return eval(((Strings)applyArgs.args()[0]).getVal());
+            });
+            reg("display", applyArgs -> {
+                Object[] args = applyArgs.args();
+                Object val = args[0];
+                if(args.length>1){
+                    if(args[1] instanceof OutputStream){
+                        try {
+                            ((OutputStream)args[1]).write(val.toString().getBytes(StandardCharsets.UTF_8));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }else {
+                        System.out.print(val instanceof Function ? "<procedure>" : val);
+                    }
+                }else{
+                    System.out.print(val instanceof Function ? "<procedure>" : val);
+                }
                 return Nil.NIL;
             });
         }
 
         private static void regFileFun() {
             // custom
-            reg("read-file-line", applyArgs -> {
+//            reg("read-file-line", applyArgs -> {
+//                Object[] args = applyArgs.args();
+//                FileUtils.readFileLine(((Strings) args[1]).getVal(), line -> Booleans.of(!applyArgs.apply(args[0], applyArgs.getExp(), applyArgs.getEnv(), line).equals(Booleans.FALSE)), args.length>2?Booleans.TRUE.equals(args[2]):true);
+//                return Nil.NIL;
+//            });
+            reg("call-with-input-file", applyArgs -> {
                 Object[] args = applyArgs.args();
-                FileUtils.readFileLine(((Strings) args[1]).getVal(), line -> Booleans.of(!applyArgs.apply(args[0], applyArgs.getExp(), applyArgs.getEnv(), line).equals(Booleans.FALSE)), args.length>2?Booleans.TRUE.equals(args[2]):true);
+                validateTrue(args.length==2,"not args size < 2");
+                validateTrue(args[0] instanceof Strings, "arg0 need type string");
+                validateTrue(args[1] instanceof Function, "arg1 need type <procedure>");
+
+                FileUtils.readFileLine(((Strings) args[0]).getVal(), reader -> {
+                    applyArgs.apply(args[1], applyArgs.getExp(), applyArgs.getEnv(), reader);
+                    return Nil.NIL;
+                });
                 return Nil.NIL;
             });
         }
