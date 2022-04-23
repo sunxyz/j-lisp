@@ -475,7 +475,21 @@ public class JLispInterpreter3 {
             reg("cons->arraylist", applyArgs -> warp(applyArgs.args()[0]));
             reg("list->vector", applyArgs -> Vectors.of(((Cons) applyArgs.args()[0]).data().toArray()));
             reg("list->string", applyArgs -> Strings.of(((Cons) applyArgs.args()[0]).data().stream().map(Object::toString).collect(Collectors.joining())));
-            reg("list->string", applyArgs -> Strings.of(((Cons) applyArgs.args()[0]).data().stream().map(Object::toString).collect(Collectors.joining())));
+            reg("list->dict", applyArgs -> {
+                Object[] args = applyArgs.args();
+                int length = args.length;
+                validateTrue(length%2==0,"key val size not eq");
+                Cons keys = ConsMaker.makeList();
+                Cons values = ConsMaker.makeList();
+                for (int i = 0; i < length; i++) {
+                    if(i%2==0){
+                        keys.add(args[i]);
+                    }else{
+                        values.add(args[i]);
+                    }
+                }
+                return Dict.of(keys, values);
+            });
             reg("length", applyArgs -> {
                 Object o = applyArgs.args()[0];
                 if (IS_EXP.test(o)) {
@@ -525,7 +539,7 @@ public class JLispInterpreter3 {
 
         private static void regStringsFun() {
             reg("string?", applyArgs -> allMath(applyArgs, o -> o instanceof Strings));
-            reg("string->list", applyArgs -> ConsMaker.makeList(((Strings) applyArgs.args()[0]).toCharArray()));
+            reg("string->list", applyArgs -> ConsMaker.makeList(Arrays.stream(((Strings) applyArgs.args()[0]).toCharArray()).map(Object::toString).map(Strings::of).toArray()));
             reg("string->number", applyArgs -> {
                 try {
                     return Integer.valueOf(((Strings) applyArgs.args()[0]).getVal());
@@ -538,23 +552,32 @@ public class JLispInterpreter3 {
             reg("string-append", applyArgs -> warp(Arrays.stream(applyArgs.args()).map(o -> (Strings) o).map(Strings::getVal).collect(Collectors.joining())));
             reg("string-replace-all-space", applyArgs -> ((Strings) applyArgs.args()[0]).replaceAllSpace());
             reg("string-index-of", applyArgs -> ((Strings) applyArgs.args()[0]).indexOf((Strings)applyArgs.args()[1]));
+            reg("string-last-index-of", applyArgs -> ((Strings) applyArgs.args()[0]).lastIndexOf((Strings)applyArgs.args()[1]));
             reg("string-upcase", applyArgs -> ((Strings) applyArgs.args()[0]).upcase());
             reg("string-downcase", applyArgs -> ((Strings) applyArgs.args()[0]).downcase());
             reg("string-trim", applyArgs -> ((Strings) applyArgs.args()[0]).trim());
             reg("string-substitute", applyArgs -> ((Strings) applyArgs.args()[0]).substitute((Strings) applyArgs.args()[1],(Strings) applyArgs.args()[2]));
             reg("string-subseq", applyArgs -> ((Strings) applyArgs.args()[0]).subseq((Integer) applyArgs.args()[1],(Integer) applyArgs.args()[2]));
             reg("string-remove", applyArgs -> ((Strings) applyArgs.args()[0]).remove((Strings) applyArgs.args()[1]));
+            reg("string-split", applyArgs -> ((Strings) applyArgs.args()[0]).split((Strings) applyArgs.args()[1]));
         }
 
         private static void regDict() {
             reg("dict?", applyArgs -> allMath(applyArgs, o -> o instanceof Dict));
             reg("dict", applyArgs -> {
                 Object[] args = applyArgs.args();
-                return Dict.of((Cons) args[0], (Cons) args[1]);
+                if(args.length ==2){
+                    return Dict.of((Cons) args[0], (Cons) args[1]);
+                }else{
+                    return Dict.mark();
+                }
             });
             reg("make-dict", applyArgs -> Dict.mark());
             reg("dict-remove!", applyArgs -> ((Dict) applyArgs.args()[0]).remove(applyArgs.args()[1]));
-            reg("dict-get", applyArgs -> ((Dict) applyArgs.args()[0]).get(applyArgs.args()[1]));
+            reg("dict-get", applyArgs -> {
+                Object v = ((Dict) applyArgs.args()[0]).get(applyArgs.args()[1]);
+                return Objects.isNull(v)?Nil.NIL:v;
+            });
             reg("dict-put!", applyArgs -> {
                 ((Dict) applyArgs.args()[0]).put(applyArgs.args()[1], applyArgs.args()[2]);
                 return Nil.NIL;

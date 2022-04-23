@@ -20,12 +20,12 @@
     ))
 
     (func $write (bitIndex word) (
-        (define index (_two2ten byteIndex))
+        (define index (two2ten byteIndex))
         (list-set! _$ index word)
     ))
 
     (func $ (bitIndex) (
-        (define index (_two2ten bitIndex))
+        (define index (two2ten bitIndex))
         (list-ref _$ index)
     ))
 
@@ -35,24 +35,15 @@
     (define _memory (make-boolean-list (* 8 1024)))
 
     (func memory-write (byteIndex word) (
-        (define index  (* (_two2ten byteIndex) _byte_size))
+        (define index  (* (two2ten byteIndex) _byte_size))
         (list-foreach word (lambda (o i) (
             list-set! _memory (+ index i) o
         )))
     ))
 
     (func memory-read (byteIndex) (
-        (define left (* (_two2ten byteIndex) _byte_size))
+        (define left (* (two2ten byteIndex) _byte_size))
         (list-sub _memory left (+ left _word_size))
-    ))
-
-    (func _two2ten (bit-ls) (
-        (define len (length bit-ls))
-        (define n 0)
-        (for ((i 0) (< i len) (i (+ i 1))) (
-            (set! n (+ (boolean->number (list-ref bit-ls i)) (* n 2)))
-        ))
-        n
     ))
 
     ;补全

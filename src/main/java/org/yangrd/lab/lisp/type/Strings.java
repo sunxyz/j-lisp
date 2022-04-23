@@ -2,6 +2,8 @@ package org.yangrd.lab.lisp.type;
 
 import lombok.EqualsAndHashCode;
 import lombok.Value;
+import org.yangrd.lab.lisp.Cons;
+import org.yangrd.lab.lisp.support.ConsMaker;
 
 import java.util.Objects;
 
@@ -15,6 +17,8 @@ public interface Strings{
 
     Integer indexOf(Strings str);
 
+    Integer lastIndexOf(Strings str);
+
     Strings upcase();
 
     Strings downcase();
@@ -27,6 +31,7 @@ public interface Strings{
 
     Strings remove(Strings strings);
 
+    Cons split(Strings splitKey);
 
 
     static Strings of(String str) {
@@ -60,6 +65,11 @@ public interface Strings{
         }
 
         @Override
+        public Integer lastIndexOf(Strings str) {
+            return  val.lastIndexOf(str.getVal());
+        }
+
+        @Override
         public Strings upcase() {
             return Strings.of(val.toUpperCase());
         }
@@ -87,6 +97,16 @@ public interface Strings{
         @Override
         public Strings remove(Strings strings) {
             return Strings.of(val.replaceAll(strings.getVal(),""));
+        }
+
+        @Override
+        public Cons split(Strings splitKey) {
+            Cons cons = ConsMaker.makeList();
+            String[] split = val.split(splitKey.getVal());
+            for (String s : split) {
+                cons.add(Strings.of(s));
+            }
+            return cons;
         }
 
         @Override

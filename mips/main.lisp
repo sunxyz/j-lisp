@@ -1,21 +1,25 @@
 (
     (load 'mips/booleans.lisp')
     (load 'mips/alu.lisp')
+    (import (compiler) from 'mips/compiler.lisp')
     (import ($pc-write $pc  $write $ memory-write memory-read make-word completion-word) from 'mips/base.lisp')
     (import (r-instruct) from 'mips/r-format.lisp')
     (import (i-instruct) from 'mips/i-format.lisp')
     (import (j-instruct) from 'mips/j-format.lisp')
-    (define _4 (
-        list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0
-    ))
+
     (define _1 (
         list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1
     ))
     (define _2 (
         list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0
     ))
+    (define _4 (
+        list 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0
+    ))
+
     (define $zero ($ (list 0 0 0 0 0)))
     (define $ra ($ (list 1 1 1 1 1)))
+
     (func move (la lb) (
         (add la $zero lb)
     ))
@@ -56,5 +60,11 @@
     ))
 
     ;(start (load 'mips/set.data'))
-    (read-file-line (lambda (x) ( (display x) (newline))) 'mips/set.data' )
+    (call-with-input-file 'mips/set.data' (lambda (input_stream) (
+        (define data (list))
+        (for ((l (read-line input_stream)) (not (null? l)) (l (read-line input_stream)) ) (
+            (list-add data l)
+        ))
+        (start (compiler data))
+    )))
 )

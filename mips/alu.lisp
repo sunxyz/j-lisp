@@ -39,7 +39,7 @@
 
     ;左移
     (func sll(l bitNum) (
-        (define num (_two2ten  bitNum))
+        (define num (two2ten  bitNum))
         (define len (length  l))
         (for((i num)(< i len)(i (+ i 1)))(
             (list-set! l (- i num) (list-ref l i))
@@ -51,7 +51,7 @@
     ))
     ; 右移
     (func srl(l bitNum) (
-        (define num (_two2ten  bitNum))
+        (define num (two2ten  bitNum))
         (define len (length  l))
         (for((i (- len num))(< num i)(i (- i 1)))(
             (list-set! l (+ i num) (list-ref l i))
@@ -62,7 +62,7 @@
         ))
     ))
 
-    (func _two2ten (ls) (
+    (func two2ten (ls) (
         (define len (length ls))
         (define n 0)
         (for ((i 0) (< i len) (i (+ i 1))) (
@@ -70,4 +70,5 @@
         ))
         n
     ))
+
 )
