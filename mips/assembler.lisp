@@ -2,7 +2,7 @@
 
     (import (get-r-opt-code get-i-opt-code get-j-opt-code get-reg-code ten2two) from 'mips/instructions-dict.lisp')
 
-    (func compiler (data) (
+    (func assembler (data) (
         (define binary_codes (list))
         (define binary_instr nil)
         (list-foreach data (lambda (line) (skip-note line (lambda (x) (
@@ -48,5 +48,5 @@
 
     (func notnull? (x) (not (null? x)))
 
-    (export compiler)
+    (export assembler)
 )

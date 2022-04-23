@@ -1,7 +1,7 @@
 (
     (load 'mips/booleans.lisp')
     (load 'mips/alu.lisp')
-    (import (compiler) from 'mips/compiler.lisp')
+    (import (assembler) from 'mips/assembler.lisp')
     (import ($pc-write $pc  $write $ memory-write memory-read make-word completion-word) from 'mips/base.lisp')
     (import (r-instruct) from 'mips/r-format.lisp')
     (import (i-instruct) from 'mips/i-format.lisp')
@@ -65,6 +65,6 @@
         (for ((l (read-line input_stream)) (not (null? l)) (l (read-line input_stream)) ) (
             (list-add data l)
         ))
-        (start (compiler data))
+        (start (assembler data))
     )))
 )
