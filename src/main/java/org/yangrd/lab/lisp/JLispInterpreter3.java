@@ -72,7 +72,6 @@ public class JLispInterpreter3 {
     }
 
     @AllArgsConstructor(staticName = "of")
-
     public static class ApplyArgs extends EvalAndApplyProxy {
         @Getter
         final Cons exp;
@@ -359,25 +358,23 @@ public class JLispInterpreter3 {
         }
 
         private static void regBooleanFun() {
-            reg("and", applyArgs -> {
+            reg("fea", applyArgs -> {
                 List<Object> list = applyArgs.args != null ? Arrays.asList(applyArgs.args()) : applyArgs.getExp().list();
-                List<Object> holder = new ArrayList<>();
-                holder.add(null);
+                Object[] holder = new Object[]{null};
                 return warp(list.stream().map(o -> {
                     Object t = applyArgs.eval(o, applyArgs.getExp());
-                    holder.set(0, t);
+                    holder[0]= t;
                     return t;
-                }).allMatch(FunManager::toBoolean) ? holder.iterator().next() : false);
+                }).allMatch(FunManager::toBoolean) ? holder[0] : false);
             });
             reg("or", applyArgs -> {
                 List<Object> list = applyArgs.args != null ? Arrays.asList(applyArgs.args()) : applyArgs.getExp().list();
-                List<Object> holder = new ArrayList<>();
-                holder.add(null);
+                Object[] holder = new Object[]{null};
                 return warp(list.stream().map(o -> {
                     Object t = applyArgs.eval(o, applyArgs.getExp());
-                    holder.set(0, t);
+                    holder[0]= t;
                     return t;
-                }).anyMatch(FunManager::toBoolean) ? holder.iterator().next() : false);
+                }).anyMatch(FunManager::toBoolean) ? holder[0] : false);
             });
             reg("not", applyArgs -> {
                 Object[] ts = applyArgs.args();
