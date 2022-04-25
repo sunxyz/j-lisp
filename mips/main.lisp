@@ -2,7 +2,7 @@
     (load 'mips/booleans.lisp')
     (load 'mips/alu.lisp')
     (import (assembler) from 'mips/assembler.lisp')
-    (import ($pc-write $pc  $write $ memory-write memory-read make-word completion-word) from 'mips/base.lisp')
+    (import ($pc-store $pc  $store $ memory-store memory-load make-word completion-word) from 'mips/base.lisp')
     (import (r-instruct) from 'mips/r-format.lisp')
     (import (i-instruct) from 'mips/i-format.lisp')
     (import (j-instruct) from 'mips/j-format.lisp')
@@ -26,7 +26,7 @@
     (func pcAdd4()(
         (define temp (make-word))
         (add ($pc) _4 temp)
-        ($pc-write temp)
+        ($pc-store temp)
     ))
 
     (func id(word)(
@@ -43,11 +43,11 @@
     ))
 
     (func start(data)(
-        (memory-write $zero data)
+        (memory-store $zero data)
         (define next #t)
         (define word nil)
         (while (next) (
-            (set! word (memory-read ($pc)))
+            (set! word (memory-load ($pc)))
             (when (null? (car word)) (
                 (set! next #f)
             ))
@@ -59,12 +59,31 @@
         ))
     ))
 
-    ;(start (load 'mips/set.data'))
-    (call-with-input-file 'mips/set.data' (lambda (input_stream) (
+    (func load-file-lines-2-list (file_name ) (
         (define data (list))
-        (for ((l (read-line input_stream)) (not (null? l)) (l (read-line input_stream)) ) (
-            (list-add data l)
+        (call-with-input-file file_name (lambda (input_stream) (
+            (for ((l (read-line input_stream)) (not (null? l)) (l (read-line input_stream)) ) (
+                (list-add data l)
+            ))
+        )))
+        (data)
+    ))
+
+    (func skip-note(line g) (
+        (when (and (string-index-of line ';') (length line)) (
+            g line
         ))
-        (start (assembler data))
-    )))
+    ))
+
+    (func file-lines-2-list (lines) (
+        (define data (list))
+        (list-foreach lines (lambda (line) (skip-note line (lambda (x) (
+           (list-add-all data (string->list x))
+        )))))
+        data
+    ))
+
+    (start (file-lines-2-list (load-file-lines-2-list 'mips/set.bc')))
+    ($pc-store $zero )
+    (start (assembler (load-file-lines-2-list 'mips/set.ac')))
 )

@@ -3,7 +3,7 @@ addi $s1 $s0 5
 ; op = addi  rs = $s0 rt = $s1   immediate = 5
 ; addi = 001000 $s0 = 10000 $s1 = 10001 5 = 0000000000000101
 ; 001000 10000 10001 0000000000000101
-addi $s2 $s1 2
+addi $s2 $s1 100
 ; 001000 10001 10010 0000000000000010
 ;r-format |  op   | rs  | rt  | rd  | shamt | func  |
 sub $s3 $s2 $s1

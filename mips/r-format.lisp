@@ -62,7 +62,7 @@
     (func r-syscall (rs rt rd shamt) (
         ;todo
        (display ':=>')
-       (display rd)
+       (display (two2ten rd))
        (newline)
     ))
 

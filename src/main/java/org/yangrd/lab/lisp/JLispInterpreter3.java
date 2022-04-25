@@ -690,7 +690,9 @@ public class JLispInterpreter3 {
                 return !((Cons) o).isEmpty();
             } else if (o instanceof Character) {
                 return !o.equals('0');
-            } else {
+            } else if (o instanceof Strings) {
+                return  !((Strings) o).getVal().equals("0");
+            }else{
                 return !o.equals(0);
             }
         }

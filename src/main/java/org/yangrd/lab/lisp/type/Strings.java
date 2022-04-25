@@ -111,7 +111,7 @@ public interface Strings{
 
         @Override
         public String toString() {
-            return "'" + val+"'";
+            return val;
         }
 
         @Override

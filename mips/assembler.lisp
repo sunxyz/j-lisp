@@ -3,6 +3,7 @@
     (import (get-r-opt-code get-i-opt-code get-j-opt-code get-reg-code ten2two) from 'mips/instructions-dict.lisp')
 
     (func assembler (data) (
+        (println 'begin assembler')
         (define binary_codes (list))
         (define binary_instr nil)
         (list-foreach data (lambda (line) (skip-note line (lambda (x) (
@@ -14,6 +15,7 @@
             (newline)
             (list-add-all binary_codes binary_instr)
         )))) )
+        (println 'end assembler')
         binary_codes
     ))
 

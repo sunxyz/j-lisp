@@ -7,7 +7,7 @@
 
     (define _$pc (make-word ))
     (func $pc()(_$pc))
-    (func $pc-write (word) (
+    (func $pc-store (word) (
         (list-foreach word (lambda (v index) (
             (list-set! _$pc index v)
         )))
@@ -19,7 +19,7 @@
         list-set! _$ i (make-word )
     ))
 
-    (func $write (bitIndex word) (
+    (func $store (bitIndex word) (
         (define index (two2ten byteIndex))
         (list-set! _$ index word)
     ))
@@ -34,14 +34,14 @@
     (define _byte_size 8)
     (define _memory (make-boolean-list (* 8 1024)))
 
-    (func memory-write (byteIndex word) (
+    (func memory-store (byteIndex word) (
         (define index  (* (two2ten byteIndex) _byte_size))
         (list-foreach word (lambda (o i) (
             list-set! _memory (+ index i) o
         )))
     ))
 
-    (func memory-read (byteIndex) (
+    (func memory-load (byteIndex) (
         (define left (* (two2ten byteIndex) _byte_size))
         (list-sub _memory left (+ left _word_size))
     ))
@@ -56,5 +56,5 @@
         ))
         tmp
     ))
-    (export $pc-write $pc  $write $ memory-write memory-read make-word  completion-word)
+    (export $pc-store $pc  $store $ memory-store memory-load make-word  completion-word)
 )
