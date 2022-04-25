@@ -2,23 +2,23 @@
 
     (func j-j (address) (
         (define tmp (make-word))
-        (move $pc tmp)
+        (move ($pc) tmp)
         (sll address _2)
         (for ((i 4) (< i 32) (i (+ i 1))) (
             (list-set! tmp i (list-ref address (- i 4)))
          ))
-        (move tmp $pc)
+        ($pc-store tmp)
     ))
 
     (func j-jal (address) (
-        (move $pc $ra)
+        (move ($pc) $ra)
         (define tmp (make-word))
-        (move $pc tmp)
+        (move ($pc) tmp)
         (sll address _2)
         (for ((i 4) (< i 32) (i (+ i 1))) (
             (list-set! tmp i (list-ref address (- i 4)))
         ))
-        (move tmp $pc)
+        ($pc-store $pc tmp)
     ))
 
     (define mapper (make-dict))
