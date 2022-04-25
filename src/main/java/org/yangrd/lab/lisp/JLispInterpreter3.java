@@ -358,7 +358,7 @@ public class JLispInterpreter3 {
         }
 
         private static void regBooleanFun() {
-            reg("fea", applyArgs -> {
+            reg("and", applyArgs -> {
                 List<Object> list = applyArgs.args != null ? Arrays.asList(applyArgs.args()) : applyArgs.getExp().list();
                 Object[] holder = new Object[]{null};
                 return warp(list.stream().map(o -> {
