@@ -51,7 +51,7 @@ public class JLispInterpreter3 {
             }
             return cdr.isEmpty() ? v : eval(cdr, env);
         } else if (IS_SYMBOLS.test(car)) {
-            Object v = env.env(exp.carSymbols()).orElseThrow(() -> new IllegalArgumentException(exp.parent().parent() + ": " + exp.carSymbols() + " not define"));
+            Object v = env.env(exp.carSymbols()).orElseThrow(() -> new IllegalArgumentException((Objects.nonNull(exp.parent())?exp.parent().parent():exp.parent()) + ": " + exp.carSymbols() + " not define"));
             if (CAN_APPLY.test(exp, v)) {
                 return apply(v, cdr, env);
             }
@@ -459,6 +459,12 @@ public class JLispInterpreter3 {
                 List<Object> list = arg.list();
                 return ConsMaker.makeList(list.subList((int) applyArgs.args()[1], (int) applyArgs.args()[2]).toArray());
             });
+            reg("list-remove", applyArgs -> {
+                Cons arg = (Cons) applyArgs.args()[0];
+                List<Object> list = arg.list();
+                list.remove((int) applyArgs.args()[1]);
+                return arg;
+            });
             reg("null?", applyArgs -> allMath(applyArgs, o -> {
                 if (o instanceof Cons) {
                     return ((Cons) o).isEmpty();
@@ -514,6 +520,7 @@ public class JLispInterpreter3 {
             reg("number?", applyArgs -> allMath(applyArgs, o -> o instanceof Number));
             reg("integer?", applyArgs -> allMath(applyArgs, o -> o instanceof Integer));
             reg("number->string", applyArgs -> Strings.of(applyArgs.args()[0].toString()));
+            reg("number->char", applyArgs -> (char)((int)applyArgs.args()[0]));
             reg("sqrt", applyArgs -> Math.round(Math.sqrt(((Integer) (applyArgs.args()[0])).floatValue())));
             reg("+", applyArgs -> toIntStream(applyArgs.args()).reduce(Integer::sum).orElse(null));
             reg("-", applyArgs -> toIntStream(applyArgs.args()).reduce((a, b) -> a - b).orElse(null));
