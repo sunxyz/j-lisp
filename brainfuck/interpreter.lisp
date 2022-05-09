@@ -35,19 +35,19 @@
 
     (func interpreter(*ast-codes*)(
         (define *code* (ast-get-data *ast-codes*))
-        (list-foreach *code* (lambda (c) (
+        (list-foreach *code* (lambda (*c*) (
             (cond
-                ((eqv? c '>') (point->))
-                ((eqv? c '<') (point<-))
-                ((eqv? c '+') (increment))
-                ((eqv? c '-') (decrease))
-                ((eqv? c '.') (write-console))
-                ((eqv? c ',') (read-console))
-                ((ast? c) (
+                ((eqv? *c* '>') (point->))
+                ((eqv? *c* '<') (point<-))
+                ((eqv? *c* '+') (increment))
+                ((eqv? *c* '-') (decrease))
+                ((eqv? *c* '.') (write-console))
+                ((eqv? *c* ',') (read-console))
+                ((ast? *c*) (
                     (while (while?)
-                    (interpreter c))
+                    (interpreter *c*))
                 ))
-                (else (display c))
+                (else (display *c*))
             )
         )))
     ))
