@@ -9,8 +9,8 @@
     (func ast-get-parent (ast) (
         (vector-ref ast 2)
     ))
-    (func ast? ()(
+    (func ast? (ast)(
         (eqv? (vector-ref ast 0) 'ast')
     ))
-    (export make-ast ast-push ast-get-data ast-get-parent)
+    (export make-ast ast-push ast-get-data ast-get-parent  ast?)
 )
